@@ -23,6 +23,8 @@ jobs:
         run: |
           rm -rf android/app/src/main/res/mipmap-anydpi-v26
           cp -r android-res/* android/app/src/main/res/
+      - name: Prepare notification sounds
+        run: bash scripts/prepare-sounds.sh
       - name: Use permanent signing key (keeps your data on updates)
         run: mkdir -p ~/.android && cp debug.keystore ~/.android/debug.keystore
       - run: npx cap sync android

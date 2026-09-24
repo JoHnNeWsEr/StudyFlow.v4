@@ -1,6 +1,8 @@
 import "./style.css";
 import { Capacitor } from "@capacitor/core";
 import { LocalNotifications } from "@capacitor/local-notifications";
+import { Filesystem, Directory, Encoding } from "@capacitor/filesystem";
+import { Share } from "@capacitor/share";
 
 function uid(){try{return crypto.randomUUID()}catch(e){return Date.now().toString(36)+Math.random().toString(36).slice(2,10)}}
 function addHour(t){let[h,m]=t.split(':').map(Number);return String((h+1)%24).padStart(2,'0')+':'+String(m).padStart(2,'0')}
@@ -21,7 +23,7 @@ let data=JSON.parse(store.get(KEY)||"null")||{
 };
 let view="home";
 
-function save(){store.set(KEY,JSON.stringify(data));try{syncNotifications()}catch(e){}}
+function save(){store.set(KEY,JSON.stringify(data));try{autoBackup()}catch(e){}try{syncNotifications()}catch(e){}}
 function esc(s=""){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 function fmtDate(x){if(!x)return "";return new Date(x+"T00:00:00").toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"});}
 function fmtTime(x){if(!x)return "";let [h,m]=x.split(":");let d=new Date();d.setHours(+h,+m);return d.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});}
@@ -91,7 +93,7 @@ function settings(){
  return `<section class="page"><div class="pagehead"><div><span class="muted">PREFERENCES</span><h2>Settings</h2></div></div>
  <div class="settinggroup"><h3>Profile</h3><button class="setting" onclick="profile()"><span>👤</span><div><strong>${esc(data.profile.name||"Your profile")}</strong><small>${esc(data.profile.school||"Add your school information")}</small></div><b>›</b></button></div>
  <div class="settinggroup"><h3>Appearance</h3><button class="setting" onclick="toggleTheme()"><span>◐</span><div><strong>Theme</strong><small>${data.theme==="light"?"Light":"Dark"}</small></div><b>›</b></button></div>
- <div class="settinggroup"><h3>Reminders</h3><button class="setting" onclick="toggleNotifications()"><span>🔔</span><div><strong>Notifications</strong><small>${data.notifications?"Enabled":"Disabled"}</small></div><b>${data.notifications?"ON":"OFF"}</b></button><label class="setting"><span>⏰</span><div><strong>Class reminder</strong><small>Before each class starts</small></div><select onchange="setClassRemind(this.value)">${[[0,"Off"],[5,"5 min"],[10,"10 min"],[15,"15 min"],[30,"30 min"]].map(o=>`<option value="${o[0]}" ${(data.classRemind??10)==o[0]?"selected":""}>${o[1]}</option>`).join("")}</select></label><button class="setting" onclick="testNotify()"><span>🧪</span><div><strong>Send test notification</strong><small>Arrives in 5 seconds</small></div><b>TEST</b></button></div>
+ <div class="settinggroup"><h3>Reminders</h3><button class="setting" onclick="toggleNotifications()"><span>🔔</span><div><strong>Notifications</strong><small>${data.notifications?"Enabled":"Disabled"}</small></div><b>${data.notifications?"ON":"OFF"}</b></button><label class="setting"><span>⏰</span><div><strong>Class reminder</strong><small>Before each class starts</small></div><select onchange="setClassRemind(this.value)">${[[0,"Off"],[5,"5 min"],[10,"10 min"],[15,"15 min"],[30,"30 min"]].map(o=>`<option value="${o[0]}" ${(data.classRemind??10)==o[0]?"selected":""}>${o[1]}</option>`).join("")}</select></label><button class="setting" onclick="openSound()"><span>🔊</span><div><strong>Notification sound</strong><small>${data.sound&&data.sound!=="default"?prettyS(data.sound)+" · "+(data.soundDur||15)+" sec":"Phone default"}</small></div><b>›</b></button><button class="setting" onclick="testNotify()"><span>🧪</span><div><strong>Send test notification</strong><small>Arrives in 5 seconds</small></div><b>TEST</b></button></div>
  <div class="settinggroup"><h3>Help</h3><button class="setting" onclick="startTour()"><span>🎓</span><div><strong>Replay tutorial</strong><small>A quick guided tour of the app</small></div><b>›</b></button></div><div class="settinggroup"><h3>Backup</h3><button class="setting" onclick="openBackup()"><span>💾</span><div><strong>Backup &amp; restore</strong><small>Save or move your data</small></div><b>›</b></button></div><div class="settinggroup"><h3>Data</h3><button class="setting danger" onclick="resetData()"><span>↺</span><div><strong>Reset all data</strong><small>Remove subjects, classes and events</small></div><b>›</b></button></div>
  <p class="version">StudyFlow • MVP 1.0</p></section>`;
 }
@@ -183,9 +185,9 @@ async function syncNotifications(){
    if(pending.notifications.length)await LocalNotifications.cancel({notifications:pending.notifications.map(n=>({id:n.id}))});
    if(!evs.length&&!cls.length)return;
    if(!await ensurePerm())return;
-   try{await LocalNotifications.createChannel({id:"reminders",name:"Reminders",description:"Class and event reminders",importance:5,visibility:1,vibration:true})}catch(e){}
-   const list=[...evs.map(e=>({channelId:"reminders",id:numId(e.id),title:e.title,body:body(e),schedule:{at:new Date(due(e)),allowWhileIdle:true}})),
-    ...cls.map(c=>({channelId:"reminders",id:numId(c.id+"c"),title:subjectName(c.subjectId)+" starts in "+cm+" min",body:(c.room?"Room "+c.room+" · ":"")+fmtTime(c.start),schedule:{on:classAlarm(c,cm),allowWhileIdle:true}}))];
+   try{await mkChannel()}catch(e){}
+   const list=[...evs.map(e=>({channelId:chId(),id:numId(e.id),title:e.title,body:body(e),schedule:{at:new Date(due(e)),allowWhileIdle:true}})),
+    ...cls.map(c=>({channelId:chId(),id:numId(c.id+"c"),title:subjectName(c.subjectId)+" starts in "+cm+" min",body:(c.room?"Room "+c.room+" · ":"")+fmtTime(c.start),schedule:{on:classAlarm(c,cm),allowWhileIdle:true}}))];
    await LocalNotifications.schedule({notifications:list});
   }else if(evs.length&&await ensurePerm()){
    evs.filter(e=>due(e)-Date.now()<2147000000).forEach(e=>timers.push(setTimeout(()=>new Notification(e.title,{body:body(e),icon:"./icon-192.png"}),due(e)-Date.now())));
@@ -195,9 +197,9 @@ async function syncNotifications(){
 window.setClassRemind=v=>{data.classRemind=+v;save();shell()};
 window.testNotify=async()=>{
  try{
-  if(native)try{await LocalNotifications.createChannel({id:"reminders",name:"Reminders",description:"Class and event reminders",importance:5,visibility:1,vibration:true})}catch(e){}
+  if(native)try{await mkChannel()}catch(e){}
   if(!await ensurePerm()){alert("Notifications are blocked. Allow them for StudyFlow in Android Settings > Apps > StudyFlow > Notifications.");return;}
-  if(native)await LocalNotifications.schedule({notifications:[{channelId:"reminders",id:1,title:"StudyFlow",body:"Notifications are working! 🎉",schedule:{at:new Date(Date.now()+5000),allowWhileIdle:true}}]});
+  if(native)await LocalNotifications.schedule({notifications:[{channelId:chId(),id:1,title:"StudyFlow",body:"Notifications are working! 🎉",schedule:{at:new Date(Date.now()+5000),allowWhileIdle:true}}]});
   else setTimeout(()=>new Notification("StudyFlow",{body:"Notifications are working! 🎉"}),5000);
  }catch(e){alert("Could not send: "+e.message)}
 };
@@ -250,42 +252,83 @@ window.restoreBackup=()=>{try{const d=JSON.parse(document.querySelector("#bk").v
 // ---------- Scan class program (photo -> OCR -> review -> schedule) ----------
 const DAYRE=/\b(mon(?:day)?|tue(?:s|sday)?|wed(?:nesday)?|thu(?:rs|rsday)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)\b/gi;
 const DAYMAP={mon:"Monday",tue:"Tuesday",wed:"Wednesday",thu:"Thursday",fri:"Friday",sat:"Saturday",sun:"Sunday"};
-function to24(h,m,ref){h=+h;if(h>=1&&h<=6)h+=12;let t=h*60+ +m;if(ref!=null&&t<=ref)t+=720;return t}
+const CODEMAP={m:"Monday",t:"Tuesday",w:"Wednesday",th:"Thursday",f:"Friday",s:"Saturday",su:"Sunday",sa:"Saturday"};
+const TIMERE=/(\d{1,2})[:.;](\d{2})\s*(a\.?m\.?|p\.?m\.?)?\s*(?:[-–—~]|to)\s*(\d{1,2})[:.;](\d{2})\s*(a\.?m\.?|p\.?m\.?)?/i;
+const TEACH=/((?:Mr|Mrs|Ms|Dr|Engr|Prof|Atty|Sir|Maam)\.?\s+[A-Z][\w.'’ -]+|[A-Z][A-Za-z'’-]+,\s*[A-Z][A-Za-z.'’ ]+)$/;
+function to24(h,m,ref,ap){h=+h;if(ap)h=(h%12)+(ap==="p"?12:0);else if(h>=1&&h<=6)h+=12;let t=h*60+ +m;if(ref!=null&&t<=ref)t+=720;return t}
 function hhmm(t){t=t%1440;return String(Math.floor(t/60)).padStart(2,"0")+":"+String(t%60).padStart(2,"0")}
-window.parseProgram=function(text){
- let days=[],out=[];
- for(let raw of text.split(/\n/)){
-  let line=raw.replace(/[|_\[\]]/g," ").replace(/\s+/g," ").trim();if(!line)continue;
-  let tm=line.match(/(\d{1,2})[:.;](\d{2})\s*[-–—~]\s*(\d{1,2})[:.;](\d{2})/);
-  if(!tm){let f=[...line.matchAll(DAYRE)].map(x=>DAYMAP[x[1].slice(0,3).toLowerCase()]);if(f.length){days=[...new Set(f)]}continue}
-  let rest=line.slice(tm.index+tm[0].length).trim();
-  if(rest.length<3||/lunch|flag|total|break|vacant/i.test(rest)||!days.length)continue;
-  let a=to24(tm[1],tm[2]),b=to24(tm[3],tm[4],a);
-  let code="",m1=rest.match(/^([A-Z]{2,8}(?:[- ][A-Z0-9]{1,4})?)\s+(.*)$/);if(m1){code=m1[1];rest=m1[2]}
-  let name=rest,teacher="",m2=rest.match(/^(.*?)\s+(\d)\s+(\d)\s+(.*)$/);if(m2){name=m2[1];teacher=m2[4]}
-  name=name.replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9.)]+$/g,"").slice(0,60)||code;
-  out.push({name,teacher:teacher.trim(),room:"",days:[...days],start:hhmm(a),end:hhmm(b)});
+function lineDays(pre){
+ const f=[...pre.matchAll(DAYRE)].map(x=>DAYMAP[x[1].slice(0,3).toLowerCase()]);if(f.length)return[...new Set(f)];
+ for(const tk of pre.split(/[\s\/,]+/)){if(tk&&tk.length<=6&&/^(?:Th|Su|Sa|M|T|W|F|S)+$/i.test(tk)){return[...new Set([...tk.matchAll(/Th|Su|Sa|M|T|W|F|S/gi)].map(x=>CODEMAP[x[0].toLowerCase()]))]}}
+ return[];
+}
+function findCols(words){
+ const H={time:/^time$/i,desc:/^(description|descriptive|title)$/i,course:/^(course|code)$/i,units:/^units?$/i,hours:/^(hours?|hrs)$/i,inst:/^(instructor|professor|teacher|faculty|instructor\/professor)/i,room:/^(rm|room)/i,subj:/^subject$/i},c={};
+ for(const w of words){const t=w.t.replace(/[^A-Za-z\/]/g,"");for(const k in H)if(c[k]==null&&H[k].test(t)){c[k]=w.x;break}}
+ if(c.desc==null&&c.subj!=null)c.desc=c.subj;return c;
+}
+const pick=(ws,lo,hi)=>ws.filter(w=>w.x>=lo&&w.x<hi).map(w=>w.t).join(" ").replace(/[|_\[\]]/g," ").replace(/\s+/g," ").trim();
+function cleanTeacher(t){t=t.replace(/[|_]/g," ").replace(/\s+/g," ").trim();const p=t.split(" ");if(p.length>1&&/^[A-Za-z]{1,2}$/.test(p[p.length-1]))p.pop();return p.join(" ")}
+function cleanName(n){return n.replace(/^[^A-Za-z0-9]+|[\s|,;:.\-]+$/g,"").replace(/\s+\d(\s+\d)?$/,"").slice(0,80)}
+window.parseProgram=function(text,data){
+ const L=data&&data.lines&&data.lines.length?data.lines:null,lines=[];
+ if(L)for(const l of L){const ws=(l.words||[]).map(w=>({t:w.text,x:(w.bbox.x0+w.bbox.x1)/2}));lines.push({text:l.text.replace(/[|_\[\]]/g," ").replace(/\s+/g," ").trim(),words:ws,y0:l.bbox.y0,y1:l.bbox.y1})}
+ else for(const t of text.split(/\n/))lines.push({text:t.replace(/[|_\[\]]/g," ").replace(/\s+/g," ").trim(),words:null});
+ const c=L?findCols(lines.flatMap(l=>l.words)):{},useCols=!!(L&&c.desc!=null&&c.inst!=null);
+ let dS=0,dE=1e9,iS=1e9,rS=1e9;
+ if(useCols){const w=(c.units!=null&&c.hours!=null)?c.hours-c.units:0;
+  dS=c.course!=null?c.course+(c.desc-c.course)*.3:(c.time!=null?(c.time+c.desc)/2:0);
+  dE=w>0?c.units-w*.5:(c.desc+c.inst)/2;iS=w>0?c.hours+w*.5:dE;rS=c.room!=null?(c.inst+c.room)/2:1e9}
+ let days=[],out=[],prev=null,pl=null;
+ for(const l of lines){
+  const line=l.text;if(!line)continue;
+  const tm=line.match(TIMERE);
+  if(!tm){
+   const f=lineDays(line.match(DAYRE)?line:"");
+   if(f.length){days=f;prev=null;continue}
+   if(prev&&useCols&&pl&&!/total|number of units|prepared|noted|approved/i.test(line)&&l.y0-pl.y1<(pl.y1-pl.y0)*.9){
+    const d=pick(l.words,dS,dE),i=pick(l.words,iS,rS);
+    if(d)prev.name=cleanName(prev.name+" "+d);if(i)prev.teacher=cleanTeacher((prev.teacher?prev.teacher+" ":"")+i);pl=l}
+   continue}
+  const after=line.slice(tm.index+tm[0].length).trim();
+  if(/lunch|flag|break|vacant|total/i.test(after)){prev=null;continue}
+  let name="",teacher="";
+  if(useCols&&l.words){name=pick(l.words,dS,dE);teacher=pick(l.words,iS,rS)}
+  else{let rest=after,m1=rest.match(/^(\S+(?:\s+\d{1,4}[A-Za-z]?)?)\s+(.+)$/);
+   if(m1&&(/\d/.test(m1[1])||/-/.test(m1[1])||/^[A-Z]{2,8}$/.test(m1[1])))rest=m1[2];
+   let m2=rest.match(/^(.*?)\s+\d\s+\d\s+(.*)$/),m3;
+   if(m2){name=m2[1];teacher=m2[2]}else if((m3=rest.match(TEACH))&&m3.index>2){teacher=m3[1];name=rest.slice(0,m3.index)}else name=rest}
+  name=cleanName(name);teacher=cleanTeacher(teacher);
+  if(!name&&!teacher){prev=null;continue}
+  const pre=useCols&&l.words?l.words.filter(w=>w.x<dS).map(w=>w.t).join(" "):line.slice(0,tm.index);
+  const d=lineDays(pre).length?lineDays(pre):days;if(!d.length){prev=null;continue}
+  const apE=tm[6]?(/p/i.test(tm[6])?"p":"a"):null,apS=tm[3]?(/p/i.test(tm[3])?"p":"a"):apE;
+  let a=to24(tm[1],tm[2],null,apS),b=to24(tm[4],tm[5],a,apE);
+  prev={name,teacher,room:"",days:[...d],start:hhmm(a),end:hhmm(b)};out.push(prev);pl=l;
  }
  return out;
 };
-window.openScan=()=>modal("Scan class program",`<p class="muted">Take a photo or pick one of your class program / COR. StudyFlow reads it and lets you fix everything before saving. The first scan needs internet.</p>
-<button type="button" class="primary wide" onclick="document.querySelector('#scancam').click()">📷 Take a photo</button>
-<button type="button" class="wide" onclick="document.querySelector('#scanpick').click()">🖼 Choose from gallery</button>
+window.openScan=()=>modal("Scan class program",`<div class="scanhero"><div class="scanicon">✨</div><h3>Turn a photo into a schedule</h3><p>Snap or upload your COR. StudyFlow reads the subjects, teachers and times for you, then lets you fix anything before saving.</p></div>
+<div class="scanopts">
+<button type="button" class="scancard cam" onclick="document.querySelector('#scancam').click()"><span class="si">📷</span><b>Take a photo</b><small>Use your camera</small></button>
+<button type="button" class="scancard gal" onclick="document.querySelector('#scanpick').click()"><span class="si">🖼️</span><b>From gallery</b><small>Pick a saved photo</small></button>
+</div>
+<div class="scantips"><span>☀️ Good light</span><span>📐 Hold it straight</span><span>🔍 Fill the frame</span></div>
 <input id="scancam" type="file" accept="image/*" capture="environment" hidden onchange="scanFile(this.files[0])">
 <input id="scanpick" type="file" accept="image/*" hidden onchange="scanFile(this.files[0])">
-<p id="scanstat" class="muted"></p>
-<button type="button" class="wide" onclick="reviewScan([])">✍️ Skip scan, add rows by hand</button>`);
+<div class="scanprog" id="scanprog"><div class="bar"><i id="scanbar"></i></div><p id="scanstat"></p></div>
+<button type="button" class="linkbtn" onclick="reviewScan([])">✍️ Skip and add rows by hand</button>`);
 function prep(file){return new Promise((res,rej)=>{const img=new Image();img.onload=()=>{const k=Math.min(1,2000/img.width),c=document.createElement("canvas");c.width=img.width*k;c.height=img.height*k;const x=c.getContext("2d");x.drawImage(img,0,0,c.width,c.height);const d=x.getImageData(0,0,c.width,c.height),p=d.data;for(let i=0;i<p.length;i+=4){let g=.3*p[i]+.59*p[i+1]+.11*p[i+2];g=Math.max(0,Math.min(255,(g-140)*1.5+140));p[i]=p[i+1]=p[i+2]=g}x.putImageData(d,0,0);res(c)};img.onerror=rej;img.src=URL.createObjectURL(file)})}
 window.scanFile=async f=>{
- if(!f)return;const st=document.querySelector("#scanstat");
+ if(!f)return;const st=document.querySelector("#scanstat"),bar=p=>{document.querySelector("#scanprog").classList.add("on");document.querySelector("#scanbar").style.width=p+"%"};
  try{
-  st.textContent="Preparing photo…";const c=await prep(f);
-  st.textContent="Loading reader…";
+  bar(8);st.textContent="Preparing photo…";const c=await prep(f);
+  bar(20);st.textContent="Loading the reader (first time needs internet)…";
   const {createWorker}=await import("tesseract.js");
-  const w=await createWorker("eng",1,{logger:m=>{if(m.status==="recognizing text")st.textContent="Reading… "+Math.round(m.progress*100)+"%"}});
+  const w=await createWorker("eng",1,{logger:m=>{if(m.status==="recognizing text"){bar(25+Math.round(m.progress*70));st.textContent="Reading your schedule… "+Math.round(m.progress*100)+"%"}}});
   await w.setParameters({tessedit_pageseg_mode:"6",preserve_interword_spaces:"1"});
   const {data}=await w.recognize(c);await w.terminate();
-  const rows=parseProgram(data.text);
+  const rows=parseProgram(data.text,data);
   reviewScan(rows,rows.length?"":"I couldn't find any classes in that photo. Add them by hand below, or retake a straighter, brighter photo.");
  }catch(e){st.textContent="Scanning isn't available here ("+(e.message||e)+"). You can add rows by hand instead."}
 };
@@ -303,3 +346,50 @@ window.importScan=()=>{
  });
  save();closeModal();go("schedule");alert(n+" classes added to your schedule.");
 };
+
+// ---------- Backup FILE (save / share / restore) + automatic in-app backup ----------
+const bkName=()=>"StudyFlow-backup-"+new Date().toISOString().slice(0,10)+".json";
+window.saveBackupFile=async()=>{
+ const json=JSON.stringify(data,null,1);
+ try{
+  if(native){
+   await Filesystem.writeFile({path:bkName(),data:json,directory:Directory.Cache,encoding:Encoding.UTF8});
+   const {uri}=await Filesystem.getUri({path:bkName(),directory:Directory.Cache});
+   await Share.share({title:"StudyFlow backup",files:[uri],dialogTitle:"Save your backup file (Files, Drive, WhatsApp...)"});
+  }else{
+   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([json],{type:"application/json"}));a.download=bkName();document.body.appendChild(a);a.click();a.remove();
+  }
+ }catch(e){if(!/cancel/i.test(String(e.message||e)))alert("Couldn't save the file: "+(e.message||e))}
+};
+function applyBackup(d){if(!d||!d.subjects||!d.classes||!d.events)throw new Error("Not a StudyFlow backup");data=d;save();closeModal();go("schedule");alert("Backup restored!")}
+window.restoreFile=async f=>{if(!f)return;try{applyBackup(JSON.parse(await f.text()))}catch(e){alert("That file isn't a valid StudyFlow backup.")}};
+let abT;
+function autoBackup(){if(!native)return;clearTimeout(abT);abT=setTimeout(async()=>{try{await Filesystem.writeFile({path:"auto-backup.json",data:JSON.stringify(data),directory:Directory.Data,encoding:Encoding.UTF8});store.set("abTime",new Date().toLocaleString())}catch(e){}},1500)}
+window.restoreAuto=async()=>{try{const r=await Filesystem.readFile({path:"auto-backup.json",directory:Directory.Data,encoding:Encoding.UTF8});applyBackup(JSON.parse(r.data))}catch(e){alert("No automatic backup found yet.")}};
+window.openBackup=()=>modal("Backup & restore",`<p class="muted">Keep a backup file so you never lose your schedule, even if you reinstall the app.</p>
+<button type="button" class="primary wide" onclick="saveBackupFile()">💾 Save backup file</button>
+<small class="muted">Choose Files / Drive / WhatsApp in the share menu to store it.</small>
+<button type="button" class="wide" onclick="document.querySelector('#bkfile').click()">📂 Restore from a backup file</button>
+<input id="bkfile" type="file" accept=".json,.txt,application/json,text/plain" hidden onchange="restoreFile(this.files[0])">
+${native?`<button type="button" class="wide" onclick="restoreAuto()">🕘 Restore automatic backup</button><small class="muted">The app keeps its own copy after every change. Last: ${esc(store.get("abTime")||"none yet")}</small>`:""}
+<details style="margin-top:12px"><summary class="muted">Advanced: backup as text</summary><textarea id="bk" rows="6" style="width:100%">${esc(JSON.stringify(data))}</textarea><button type="button" class="wide" onclick="copyBackup()">Copy text</button><button type="button" class="delete wide" onclick="restoreBackup()">Restore from text above</button></details>`);
+
+// ---------- Custom notification sound + duration ----------
+let SND=null;
+async function loadSounds(){if(SND)return SND;try{SND=await (await fetch("sounds.json")).json()}catch(e){SND=[]}return SND}
+function prettyS(n){return String(n).replace(/_/g," ").replace(/^./,c=>c.toUpperCase())}
+function soundSel(){return data.sound&&data.sound!=="default"?data.sound:null}
+function chId(){const s=soundSel();return s?"rem_"+s+"_"+(data.soundDur||15):"reminders"}
+async function mkChannel(){const s=soundSel(),d=data.soundDur||15;
+ try{await LocalNotifications.createChannel({id:chId(),name:s?"Reminders - "+prettyS(s)+" ("+d+"s)":"Reminders",description:"Class and event reminders",importance:5,visibility:1,vibration:true,...(s?{sound:"s_"+s+"_"+d+".ogg"}:{})})}catch(e){}}
+let aud;
+window.playSound=n=>{try{if(aud){aud.pause();aud=null}aud=new Audio("sounds/"+n+".ogg");aud.play()}catch(e){}};
+window.pickSound=n=>{data.sound=n;save();closeModal();shell();openSound()};
+window.setDur=d=>{data.soundDur=d;save();shell()};
+window.openSound=async()=>{
+ const list=native?await loadSounds():[],cur=data.sound||"default",dur=data.soundDur||15;
+ modal("Notification sound",`<p class="muted">Pick a sound and how long it plays.</p>
+ <div id="sndlist">${["default",...list].map(n=>`<div class="setting snd"><span onclick="pickSound('${n}')">${cur===n?"●":"○"}</span><div onclick="pickSound('${n}')"><strong>${n==="default"?"Phone default":prettyS(n)}</strong></div>${n==="default"?"":`<button type="button" class="tiny" onclick="playSound('${n}')">▶</button>`}</div>`).join("")}</div>
+ <p class="muted">Play for</p><div class="chips">${[10,15,20].map(d=>`<label class="chip"><input type="radio" name="sd" ${d===dur?"checked":""} onchange="setDur(${d})"><span>${d} sec</span></label>`).join("")}</div>
+ ${native?`<button type="button" class="primary wide" onclick="testNotify()">Send test notification</button><p class="muted">Your phone must not be on silent or Do Not Disturb to hear it.</p>`:`<p class="muted">Custom sounds work in the installed Android app.</p>`}
+ <p class="muted">Want your own music? Add an mp3 to the <b>sounds</b> folder on GitHub and update. It is trimmed to 10/15/20 seconds automatically.</p>`)};
