@@ -40,7 +40,7 @@ function shell(){
  document.documentElement.dataset.theme=data.theme;
  document.querySelector("#app").innerHTML=`
  <div class="app">
-  <header class="top"><div class="hgrid"><div class="avatar">${initials(data.profile.name)}</div>
+  <header class="top"><div class="hgrid"><div class="avatar" onclick="profile()">${data.profile.photo?`<img src="${data.profile.photo}" alt="">`:initials(data.profile.name)}</div>
    <div class="htext"><div class="eyebrow">${greeting().toUpperCase()} ${new Date().getHours()<12?"☀️":new Date().getHours()<18?"🌤️":"🌙"}</div><h1 class="hname">${data.profile.name?esc(data.profile.name):"Ready to study?"}</h1></div>
    <button class="iconbtn" onclick="openQuick()">＋</button></div>
    <div class="hchips">${headChips()}</div></header>
@@ -75,7 +75,7 @@ function home(){
  </section>`;
 }
 function classCard(x){return `<div class="card classcard"><div class="time">${fmtTime(x.start)}<small>${fmtTime(x.end)}</small></div><div class="line"></div><div class="grow"><strong>${esc(subjectName(x.subjectId))}</strong><span>${esc(x.teacher||"")} ${x.room?"· "+esc(x.room):""}</span></div><button class="dots" onclick="editClass('${x.id}')">⋯</button></div>`}
-function eventCard(e){return `<div class="card eventcard"><div class="typeicon t-${e.type.toLowerCase()}">${icon(e.type)}</div><div class="grow"><strong>${esc(e.title)}</strong><span>${esc(e.type)} · ${esc(subjectName(e.subjectId))}</span><small>${fmtDate(e.date)}${e.time?" · "+fmtTime(e.time):""}</small></div><button class="dots" onclick="editEvent('${e.id}')">⋯</button></div>`}
+function eventCard(e){const d=e.status==="Completed";return `<div class="card eventcard ${d?"done":""}"><button class="chk ${d?"on":""}" onclick="toggleDone('${e.id}',this)" aria-label="Mark complete"><span class="burst"></span><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button><div class="typeicon t-${e.type.toLowerCase()}">${icon(e.type)}</div><div class="grow"><strong>${esc(e.title)}</strong><span>${esc(e.type)} · ${esc(subjectName(e.subjectId))}</span><small>${d?"✓ Completed":fmtDate(e.date)+(e.time?" · "+fmtTime(e.time):"")}</small></div><button class="dots" onclick="editEvent('${e.id}')">⋯</button></div>`}
 
 function schedule(){
  let days=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
@@ -89,13 +89,15 @@ function dayView(d){
  return `<div class="daytitle"><h3>${d}</h3><button onclick="addClass('${d}')">Add</button></div>${cls.length?cls.map(classCard).join(""):`<div class="empty small"><strong>No classes on ${d}.</strong></div>`}`;
 }
 
+let evFilter="All";
+function evList(){const l=data.events.filter(e=>evFilter==="All"||(evFilter==="Done"?e.status==="Completed":e.type===evFilter)).sort((a,b)=>{const x=a.status==="Completed",y=b.status==="Completed";return x!==y?x-y:(a.date+" "+a.time).localeCompare(b.date+" "+b.time)});return l.length?l.map(eventCard).join(""):`<div class="empty small"><strong>Nothing here yet.</strong></div>`}
+function evProg(){const n=data.events.length,d=data.events.filter(e=>e.status==="Completed").length;if(!n)return"";const p=Math.round(d/n*100);return `<div class="evprog"><div class="evtxt"><b>${d} of ${n} done</b><span>${p===100?"All caught up! 🎉":(n-d)+" left to go"}</span></div><div class="pbar"><i style="width:${p}%"></i></div></div>`}
 function events(){
- let list=[...data.events].sort((a,b)=>(a.date+" "+a.time).localeCompare(b.date+" "+b.time));
  return `<section class="page"><div class="pagehead"><div><span class="muted">ACADEMIC PLANNER</span><h2>Events</h2></div><button class="primary" onclick="addEvent()">＋ Event</button></div>
- <div class="chips"><button class="selected" onclick="filterEvents('All',this)">All</button>${TYPES.map(t=>`<button onclick="filterEvents('${t}',this)">${t}</button>`).join("")}</div>
- <div id="eventlist">${list.length?list.map(eventCard).join(""):`<div class="empty"><div>📝</div><strong>No events yet</strong><span>Keep quizzes, exams and deadlines in one place.</span><button onclick="addEvent()">Add event</button></div>`}</div></section>`;
+ ${evProg()}<div class="chips">${["All",...TYPES,"Done"].map(t=>`<button class="${evFilter===t?"selected":""}" onclick="filterEvents('${t}',this)">${t==="Done"?"✓ Done":t}</button>`).join("")}</div>
+ <div id="eventlist">${data.events.length?evList():`<div class="empty"><div>📝</div><strong>No events yet</strong><span>Keep quizzes, exams and deadlines in one place.</span><button onclick="addEvent()">Add event</button></div>`}</div></section>`;
 }
-function filterEvents(t,btn){document.querySelectorAll(".chips button").forEach(x=>x.classList.remove("selected"));btn.classList.add("selected");let l=data.events.filter(e=>t==="All"||e.type===t).sort((a,b)=>(a.date+" "+a.time).localeCompare(b.date+" "+b.time));document.querySelector("#eventlist").innerHTML=l.length?l.map(eventCard).join(""):`<div class="empty small"><strong>No ${t.toLowerCase()} events.</strong></div>`;}
+function filterEvents(t,btn){evFilter=t;document.querySelectorAll(".chips button").forEach(x=>x.classList.remove("selected"));btn.classList.add("selected");document.querySelector("#eventlist").innerHTML=evList()}
 
 function subjects(){
  return `<section class="page"><div class="pagehead"><div><span class="muted">YOUR CLASSES</span><h2>Subjects</h2></div><button class="primary" onclick="addSubject()">＋ Subject</button></div>
@@ -104,7 +106,7 @@ function subjects(){
 }
 function settings(){
  return `<section class="page"><div class="pagehead"><div><span class="muted">PREFERENCES</span><h2>Settings</h2></div></div>
- <div class="settinggroup"><h3>Profile</h3><button class="setting" onclick="profile()"><span>👤</span><div><strong>${esc(data.profile.name||"Your profile")}</strong><small>${esc(data.profile.school||"Add your school information")}</small></div><b>›</b></button></div>
+ <div class="settinggroup"><h3>Profile</h3><button class="setting" onclick="profile()"><span>${data.profile.photo?`<img class="pthumb" src="${data.profile.photo}" alt="">`:"👤"}</span><div><strong>${esc(data.profile.name||"Your profile")}</strong><small>${esc(data.profile.school||"Add your school information")}</small></div><b>›</b></button></div>
  <div class="settinggroup"><h3>Appearance</h3><button class="setting" onclick="toggleTheme()"><span>◐</span><div><strong>Theme</strong><small>${data.theme==="light"?"Light":"Dark"}</small></div><b>›</b></button></div>
  <div class="settinggroup"><h3>Reminders</h3><button class="setting" onclick="toggleNotifications()"><span>🔔</span><div><strong>Notifications</strong><small>${data.notifications?"Enabled":"Disabled"}</small></div><b>${data.notifications?"ON":"OFF"}</b></button><label class="setting"><span>⏰</span><div><strong>Class reminder</strong><small>Before each class starts</small></div><select onchange="setClassRemind(this.value)">${[[0,"Off"],[5,"5 min"],[10,"10 min"],[15,"15 min"],[30,"30 min"]].map(o=>`<option value="${o[0]}" ${(data.classRemind??10)==o[0]?"selected":""}>${o[1]}</option>`).join("")}</select></label><button class="setting" onclick="openSound()"><span>🔊</span><div><strong>Notification sound</strong><small>${data.soundOn===false?"Off":data.sound&&data.sound!=="default"?prettyS(data.sound)+" · "+(data.soundDur||15)+" sec":"Phone default"}</small></div><b>›</b></button><button class="setting" onclick="testNotify()"><span>🧪</span><div><strong>Send test notification</strong><small>Arrives in 5 seconds</small></div><b>TEST</b></button></div>
  <div class="settinggroup"><h3>Help</h3><button class="setting" onclick="startTour()"><span>🎓</span><div><strong>Replay tutorial</strong><small>A quick guided tour of the app</small></div><b>›</b></button></div><div class="settinggroup"><h3>Backup</h3><button class="setting" onclick="openBackup()"><span>💾</span><div><strong>Backup &amp; restore</strong><small>Save or move your data</small></div><b>›</b></button></div><div class="settinggroup"><h3>Data</h3><button class="setting danger" onclick="resetData()"><span>↺</span><div><strong>Reset all data</strong><small>Remove subjects, classes and events</small></div><b>›</b></button></div>
@@ -155,8 +157,8 @@ window.updateEvent=(e,id)=>{e.preventDefault();let x=data.events.find(a=>a.id===
 window.completeEvent=id=>{let e=data.events.find(x=>x.id===id);e.status=e.status==="Completed"?"Upcoming":"Completed";save();closeModal();shell()};
 window.deleteEvent=id=>{if(true){data.events=data.events.filter(x=>x.id!==id);save();closeModal();shell()}};
 
-window.profile=()=>modal("Your profile",`<form onsubmit="saveProfile(event)"><label>Name<input id="pname" value="${esc(data.profile.name)}" placeholder="Your name"></label><label>School<input id="pschool" value="${esc(data.profile.school)}" placeholder="School name"></label><label>Grade / Year<input id="pgrade" value="${esc(data.profile.grade)}" placeholder="Grade 10"></label><button class="primary wide">Save profile</button></form>`);
-window.saveProfile=e=>{e.preventDefault();data.profile={name:pname.value,school:pschool.value,grade:pgrade.value};save();closeModal();shell()};
+window.profile=()=>modal("Your profile",`<div class="pavatar"><div class="pav">${data.profile.photo?`<img src="${data.profile.photo}" alt="">`:`<span>${initials(data.profile.name)}</span>`}</div><div class="pavbtns"><button type="button" class="primary" onclick="document.querySelector('#pphoto').click()">📷 ${data.profile.photo?"Change":"Add"} photo</button>${data.profile.photo?`<button type="button" class="delete" onclick="removePhoto()">Remove</button>`:""}</div><input id="pphoto" type="file" accept="image/*" hidden onchange="setPhoto(this.files[0])"></div><form onsubmit="saveProfile(event)"><label>Name<input id="pname" value="${esc(data.profile.name)}" placeholder="Your name"></label><label>School<input id="pschool" value="${esc(data.profile.school)}" placeholder="School name"></label><label>Grade / Year<input id="pgrade" value="${esc(data.profile.grade)}" placeholder="Grade 10"></label><button class="primary wide">Save profile</button></form>`);
+window.saveProfile=e=>{e.preventDefault();data.profile={...data.profile,name:pname.value,school:pschool.value,grade:pgrade.value};save();closeModal();shell()};
 window.toggleTheme=()=>{data.theme=data.theme==="light"?"dark":"light";save();shell()};
 window.toggleNotifications=()=>{data.notifications=!data.notifications;save();shell()};
 window.resetData=()=>{if(confirm("Reset all StudyFlow data?")){store.del(KEY);data={profile:{name:"",school:"",grade:""},subjects:[],classes:[],events:[],theme:"light",notifications:true};view="home";shell()}};
@@ -266,8 +268,9 @@ window.restoreBackup=()=>{try{const d=JSON.parse(document.querySelector("#bk").v
 const DAYRE=/\b(mon(?:day)?|tue(?:s|sday)?|wed(?:nesday)?|thu(?:rs|rsday)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)\b/gi;
 const DAYMAP={mon:"Monday",tue:"Tuesday",wed:"Wednesday",thu:"Thursday",fri:"Friday",sat:"Saturday",sun:"Sunday"};
 const CODEMAP={m:"Monday",t:"Tuesday",w:"Wednesday",th:"Thursday",f:"Friday",s:"Saturday",su:"Sunday",sa:"Saturday"};
-const TIMERE=/(\d{1,2})[:.;](\d{2})\s*(a\.?m\.?|p\.?m\.?)?\s*(?:[-–—~]|to)\s*(\d{1,2})[:.;](\d{2})\s*(a\.?m\.?|p\.?m\.?)?/i;
+const TIMERE=/(\d{1,2})[:.;](\d{2})\s*(a\.?m\.?|p\.?m\.?)?\s*(?:[-–—~_=]+|to)?\s*(\d{1,2})[:.;](\d{2})\s*(a\.?m\.?|p\.?m\.?)?/i;
 const TEACH=/((?:Mr|Mrs|Ms|Dr|Engr|Prof|Atty|Sir|Maam)\.?\s+[A-Z][\w.'’ -]+|[A-Z][A-Za-z'’-]+,\s*[A-Z][A-Za-z.'’ ]+)$/;
+const fixT=t=>t.replace(/\b([0-9OoIl|]{1,2})[:.;]([0-9OoIl|]{2})\b/g,(m,a,b)=>{const f=x=>x.replace(/[Oo]/g,"0").replace(/[Il|]/g,"1");return f(a)+":"+f(b)});
 function to24(h,m,ref,ap){h=+h;if(ap)h=(h%12)+(ap==="p"?12:0);else if(h>=1&&h<=6)h+=12;let t=h*60+ +m;if(ref!=null&&t<=ref)t+=720;return t}
 function hhmm(t){t=t%1440;return String(Math.floor(t/60)).padStart(2,"0")+":"+String(t%60).padStart(2,"0")}
 function lineDays(pre){
@@ -275,28 +278,37 @@ function lineDays(pre){
  for(const tk of pre.split(/[\s\/,]+/)){if(tk&&tk.length<=6&&/^(?:Th|Su|Sa|M|T|W|F|S)+$/i.test(tk)){return[...new Set([...tk.matchAll(/Th|Su|Sa|M|T|W|F|S/gi)].map(x=>CODEMAP[x[0].toLowerCase()]))]}}
  return[];
 }
-function findCols(words){
- const H={time:/^time$/i,desc:/^(description|descriptive|title)$/i,course:/^(course|code)$/i,units:/^units?$/i,hours:/^(hours?|hrs)$/i,inst:/^(instructor|professor|teacher|faculty|instructor\/professor)/i,room:/^(rm|room)/i,subj:/^subject$/i},c={};
- for(const w of words){const t=w.t.replace(/[^A-Za-z\/]/g,"");for(const k in H)if(c[k]==null&&H[k].test(t)){c[k]=w.x;break}}
+function lev(a,b){const m=[];for(let i=0;i<=a.length;i++){m[i]=[i];for(let j=1;j<=b.length;j++)m[i][j]=i?Math.min(m[i-1][j]+1,m[i][j-1]+1,m[i-1][j-1]+(a[i-1]===b[j-1]?0:1)):j}return m[a.length][b.length]}
+const HW={time:["time"],desc:["description","descriptive","title"],course:["course","code"],units:["units","unit"],hours:["hours","hrs","hour"],inst:["instructor","professor","teacher","faculty"],room:["room","rm"],subj:["subject"]};
+function hdrKeys(words){const ks={};for(const w of words){const t=w.t.toLowerCase().replace(/[^a-z]/g,"");if(t.length<2)continue;for(const k in HW){if(ks[k]!=null)continue;if(HW[k].some(h=>h.length<=3?t===h:(t.startsWith(h)||lev(t,h)<=(h.length<=5?1:2)))){ks[k]=w.x;break}}}return ks}
+function findCols(lines){
+ let best=null,n=0;for(const l of lines){const k=hdrKeys(l.words);const c=Object.keys(k).length;if(c>n){n=c;best=l}}
+ if(!best||n<2)return{};const h=best.y1-best.y0||30;
+ const near=lines.filter(l=>Math.abs(l.y0-best.y0)<3*h).flatMap(l=>l.words),c=hdrKeys(near);
  if(c.desc==null&&c.subj!=null)c.desc=c.subj;return c;
 }
-const pick=(ws,lo,hi)=>ws.filter(w=>w.x>=lo&&w.x<hi).map(w=>w.t).join(" ").replace(/[|_\[\]]/g," ").replace(/\s+/g," ").trim();
+const okw=w=>w.c==null||w.c>=45;
+const pick=(ws,lo,hi)=>ws.filter(w=>w.x>=lo&&w.x<hi&&okw(w)).map(w=>w.t).join(" ").replace(/[|_\[\]]/g," ").replace(/\s+/g," ").trim();
 function cleanTeacher(t){t=t.replace(/[|_]/g," ").replace(/\s+/g," ").trim();const p=t.split(" ");if(p.length>1&&/^[A-Za-z]{1,2}$/.test(p[p.length-1]))p.pop();return p.join(" ")}
-function cleanName(n){return n.replace(/^[^A-Za-z0-9]+|[\s|,;:.\-]+$/g,"").replace(/\s+\d(\s+\d)?$/,"").slice(0,80)}
+function cleanName(n){return n.replace(/^[^A-Za-z0-9]+|[\s|,;:.\-]+$/g,"").replace(/\s+\d(\s+\d)?$/,"").slice(0,140)}
 window.parseProgram=function(text,data){
  const L=data&&data.lines&&data.lines.length?data.lines:null,lines=[];
- if(L)for(const l of L){const ws=(l.words||[]).map(w=>({t:w.text,x:(w.bbox.x0+w.bbox.x1)/2}));lines.push({text:l.text.replace(/[|_\[\]]/g," ").replace(/\s+/g," ").trim(),words:ws,y0:l.bbox.y0,y1:l.bbox.y1})}
- else for(const t of text.split(/\n/))lines.push({text:t.replace(/[|_\[\]]/g," ").replace(/\s+/g," ").trim(),words:null});
- const c=L?findCols(lines.flatMap(l=>l.words)):{},useCols=!!(L&&c.desc!=null&&c.inst!=null);
+ if(L)for(const l of L){const ws=(l.words||[]).map(w=>({t:w.text,x:(w.bbox.x0+w.bbox.x1)/2,c:w.confidence}));lines.push({text:fixT(l.text.replace(/[|_\[\]]/g," ").replace(/\s+/g," ").trim()),words:ws,y0:l.bbox.y0,y1:l.bbox.y1})}
+ else for(const t of text.split(/\n/))lines.push({text:fixT(t.replace(/[|_\[\]]/g," ").replace(/\s+/g," ").trim()),words:null});
+ const c=L?findCols(lines):{},useCols=!!(L&&c.desc!=null&&c.inst!=null);
  let dS=0,dE=1e9,iS=1e9,rS=1e9;
- if(useCols){const w=(c.units!=null&&c.hours!=null)?c.hours-c.units:0;
+ if(useCols){
+  if(c.units==null||c.hours==null){const xs=[];for(const l of lines)if(TIMERE.test(l.text))for(const w of l.words)if(/^\d$/.test(w.t)&&w.x>c.desc&&w.x<c.inst-30)xs.push(w.x);xs.sort((a,b)=>a-b);
+   if(xs.length>=2){let g=0,k=0;for(let i=1;i<xs.length;i++)if(xs[i]-xs[i-1]>g){g=xs[i]-xs[i-1];k=i}if(g>15){const A=xs.slice(0,k),B=xs.slice(k);c.units=A.reduce((a,b)=>a+b,0)/A.length;c.hours=B.reduce((a,b)=>a+b,0)/B.length}}}
+  const w=(c.units!=null&&c.hours!=null)?c.hours-c.units:0;
   dS=c.course!=null?c.course+(c.desc-c.course)*.3:(c.time!=null?(c.time+c.desc)/2:0);
-  dE=w>0?c.units-w*.5:(c.desc+c.inst)/2;iS=w>0?c.hours+w*.5:dE;rS=c.room!=null?(c.inst+c.room)/2:1e9}
+  dE=w>0?c.units-w*.5:(c.desc+c.inst)/2;iS=w>0?c.hours+w*.5:dE;
+  rS=c.room!=null?(c.inst+c.room)/2:(w>0?c.inst+(c.inst-c.hours)*.8:1e9)}
  let days=[],out=[],prev=null,pl=null;
  for(const l of lines){
   const line=l.text;if(!line)continue;
-  const tm=line.match(TIMERE);
-  if(!tm){
+  const tm=line.match(TIMERE),ok=tm&&+tm[1]<24&&+tm[4]<24&&+tm[2]<60&&+tm[5]<60;
+  if(!ok){
    const f=lineDays(line.match(DAYRE)?line:"");
    if(f.length){days=f;prev=null;continue}
    if(prev&&useCols&&pl&&!/total|number of units|prepared|noted|approved/i.test(line)&&l.y0-pl.y1<(pl.y1-pl.y0)*.9){
@@ -321,6 +333,7 @@ window.parseProgram=function(text,data){
  }
  return out;
 };
+function getLines(d){if(d.lines&&d.lines.length)return d.lines;const bl=[];for(const b of d.blocks||[])for(const p of b.paragraphs||[])for(const l of p.lines||[])bl.push(l);return bl}
 window.openScan=()=>modal("Scan class program",`<div class="scanhero"><div class="scanicon">✨</div><h3>Turn a photo into a schedule</h3><p>Snap or upload your COR. StudyFlow reads the subjects, teachers and times for you, then lets you fix anything before saving.</p></div>
 <div class="scanopts">
 <button type="button" class="scancard cam" onclick="document.querySelector('#scancam').click()"><span class="si">📷</span><b>Take a photo</b><small>Use your camera</small></button>
@@ -331,7 +344,14 @@ window.openScan=()=>modal("Scan class program",`<div class="scanhero"><div class
 <input id="scanpick" type="file" accept="image/*" hidden onchange="scanFile(this.files[0])">
 <div class="scanprog" id="scanprog"><div class="bar"><i id="scanbar"></i></div><p id="scanstat"></p></div>
 <button type="button" class="linkbtn" onclick="reviewScan([])">✍️ Skip and add rows by hand</button>`);
-function prep(file){return new Promise((res,rej)=>{const img=new Image();img.onload=()=>{const k=Math.min(1,2000/img.width),c=document.createElement("canvas");c.width=img.width*k;c.height=img.height*k;const x=c.getContext("2d");x.drawImage(img,0,0,c.width,c.height);const d=x.getImageData(0,0,c.width,c.height),p=d.data;for(let i=0;i<p.length;i+=4){let g=.3*p[i]+.59*p[i+1]+.11*p[i+2];g=Math.max(0,Math.min(255,(g-140)*1.5+140));p[i]=p[i+1]=p[i+2]=g}x.putImageData(d,0,0);res(c)};img.onerror=rej;img.src=URL.createObjectURL(file)})}
+function prep(file){return new Promise((res,rej)=>{const img=new Image();img.onload=()=>{
+ const k=Math.min(1,2000/img.width),W=Math.round(img.width*k),H=Math.round(img.height*k),c=document.createElement("canvas");c.width=W;c.height=H;const x=c.getContext("2d");x.drawImage(img,0,0,W,H);
+ const d=x.getImageData(0,0,W,H),p=d.data,g=new Float32Array(W*H);
+ for(let i=0,j=0;i<p.length;i+=4,j++)g[j]=.3*p[i]+.59*p[i+1]+.11*p[i+2];
+ const S=W+1,I=new Float64Array(S*(H+1));for(let y=1;y<=H;y++){let r=0;for(let z=1;z<=W;z++){r+=g[(y-1)*W+z-1];I[y*S+z]=I[(y-1)*S+z]+r}}
+ const R=Math.max(15,Math.round(W/60));
+ for(let y=0;y<H;y++){const y0=Math.max(0,y-R),y1=Math.min(H-1,y+R);for(let z=0;z<W;z++){const x0=Math.max(0,z-R),x1=Math.min(W-1,z+R),n=(x1-x0+1)*(y1-y0+1),m=(I[(y1+1)*S+x1+1]-I[y0*S+x1+1]-I[(y1+1)*S+x0]+I[y0*S+x0])/n,v=g[y*W+z]<m*.88?0:255,q=(y*W+z)*4;p[q]=p[q+1]=p[q+2]=v}}
+ x.putImageData(d,0,0);res(c)};img.onerror=rej;img.src=URL.createObjectURL(file)})}
 window.scanFile=async f=>{
  if(!f)return;const st=document.querySelector("#scanstat"),bar=p=>{document.querySelector("#scanprog").classList.add("on");document.querySelector("#scanbar").style.width=p+"%"};
  try{
@@ -341,7 +361,7 @@ window.scanFile=async f=>{
   const w=await createWorker("eng",1,{logger:m=>{if(m.status==="recognizing text"){bar(25+Math.round(m.progress*70));st.textContent="Reading your schedule… "+Math.round(m.progress*100)+"%"}}});
   await w.setParameters({tessedit_pageseg_mode:"6",preserve_interword_spaces:"1"});
   const {data}=await w.recognize(c);await w.terminate();
-  const rows=parseProgram(data.text,data);
+  const rows=parseProgram(data.text,{lines:getLines(data)});
   reviewScan(rows,rows.length?"":"I couldn't find any classes in that photo. Add them by hand below, or retake a straighter, brighter photo.");
  }catch(e){st.textContent="Scanning isn't available here ("+(e.message||e)+"). You can add rows by hand instead."}
 };
@@ -380,8 +400,9 @@ let abT;
 function autoBackup(){if(!native)return;clearTimeout(abT);abT=setTimeout(async()=>{try{await Filesystem.writeFile({path:"auto-backup.json",data:JSON.stringify(data),directory:Directory.Data,encoding:Encoding.UTF8});store.set("abTime",new Date().toLocaleString())}catch(e){}},1500)}
 window.restoreAuto=async()=>{try{const r=await Filesystem.readFile({path:"auto-backup.json",directory:Directory.Data,encoding:Encoding.UTF8});applyBackup(JSON.parse(r.data))}catch(e){alert("No automatic backup found yet.")}};
 window.openBackup=()=>modal("Backup & restore",`<p class="muted">Keep a backup file so you never lose your schedule, even if you reinstall the app.</p>
-<button type="button" class="primary wide" onclick="saveBackupFile()">💾 Save backup file</button>
-<small class="muted">Choose Files / Drive / WhatsApp in the share menu to store it.</small>
+<button type="button" class="primary wide" onclick="saveToFolder()">📁 Save to my phone</button>
+<small class="muted">Creates the folder <b>StudyFlow Backup File</b> inside your Documents folder.</small>
+<button type="button" class="wide" onclick="saveBackupFile()">📤 Share backup file (Drive, WhatsApp...)</button>
 <button type="button" class="wide" onclick="document.querySelector('#bkfile').click()">📂 Restore from a backup file</button>
 <input id="bkfile" type="file" accept=".json,.txt,application/json,text/plain" hidden onchange="restoreFile(this.files[0])">
 ${native?`<button type="button" class="wide" onclick="restoreAuto()">🕘 Restore automatic backup</button><small class="muted">The app keeps its own copy after every change. Last: ${esc(store.get("abTime")||"none yet")}</small>`:""}
@@ -423,3 +444,30 @@ window.openSound=async()=>{
 
 // tiny haptic tick on every button press (Android)
 document.addEventListener("pointerdown",e=>{if(e.target.closest&&e.target.closest("button")&&navigator.vibrate)try{navigator.vibrate(8)}catch(x){}},{passive:true});
+
+const bkStamp=()=>new Date().toISOString().slice(0,16).replace("T","_").replace(":","");
+window.saveToFolder=async()=>{
+ if(!native)return saveBackupFile();
+ const name="StudyFlow-backup-"+bkStamp()+".json";
+ try{
+  try{const p=await Filesystem.checkPermissions();if(p.publicStorage!=="granted")await Filesystem.requestPermissions()}catch(e){}
+  await Filesystem.writeFile({path:"StudyFlow Backup File/"+name,data:JSON.stringify(data,null,1),directory:Directory.Documents,encoding:Encoding.UTF8,recursive:true});
+  alert("Backup saved!\n\nOpen your file manager, then Documents > StudyFlow Backup File > "+name);
+ }catch(e){alert("Couldn't save to the folder ("+(e.message||e)+"). Try Share backup file instead.")}
+};
+
+// ---------- realistic "mark as completed" ----------
+function toast(msg,undo){document.querySelector("#toast")?.remove();const t=document.createElement("div");t.id="toast";t.innerHTML=`<span>${msg}</span>${undo?'<button type="button">Undo</button>':""}`;document.body.appendChild(t);if(undo)t.querySelector("button").onclick=()=>{t.remove();undo()};setTimeout(()=>t.classList.add("in"),20);setTimeout(()=>{t.classList.remove("in");setTimeout(()=>t.remove(),300)},4200)}
+function confetti(btn){const b=btn.querySelector(".burst");b.innerHTML="";for(let i=0;i<12;i++){const a=i/12*6.283+Math.random()*.4,r=26+Math.random()*16,p=document.createElement("i");p.style.cssText=`--dx:${Math.cos(a)*r}px;--dy:${Math.sin(a)*r}px;--h:${Math.floor(Math.random()*360)}`;b.appendChild(p)}setTimeout(()=>b.innerHTML="",800)}
+window.toggleDone=(id,btn)=>{
+ const e=data.events.find(x=>x.id===id),was=e.status==="Completed";e.status=was?"Upcoming":"Completed";e.doneAt=was?null:Date.now();save();
+ const card=btn.closest(".eventcard");
+ if(!was){btn.classList.add("on","anim");card.classList.add("done","popping");confetti(btn);try{navigator.vibrate&&navigator.vibrate([14,50,22])}catch(x){}
+  toast("Nice! Marked as done ✓",()=>{e.status="Upcoming";save();shell()})}
+ else{btn.classList.remove("on","anim");card.classList.remove("done","popping")}
+ setTimeout(shell,was?260:950);
+};
+
+// ---------- profile picture ----------
+window.setPhoto=f=>{if(!f)return;const img=new Image();img.onload=()=>{const n=Math.min(img.width,img.height),c=document.createElement("canvas");c.width=c.height=256;c.getContext("2d").drawImage(img,(img.width-n)/2,(img.height-n)/2,n,n,0,0,256,256);data.profile.photo=c.toDataURL("image/jpeg",.85);save();closeModal();shell();profile()};img.onerror=()=>alert("Couldn't read that photo.");img.src=URL.createObjectURL(f)};
+window.removePhoto=()=>{delete data.profile.photo;save();closeModal();shell();profile()};
