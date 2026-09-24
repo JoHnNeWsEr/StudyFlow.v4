@@ -84,6 +84,7 @@ function filterEvents(t,btn){document.querySelectorAll(".chips button").forEach(
 
 function subjects(){
  return `<section class="page"><div class="pagehead"><div><span class="muted">YOUR CLASSES</span><h2>Subjects</h2></div><button class="primary" onclick="addSubject()">＋ Subject</button></div>
+ <button class="scanbtn" onclick="openScan()">📷 Scan your class program (photo)</button>
  ${data.subjects.length?data.subjects.map((s,i)=>`<div class="card subject"><span class="swatch" style="background:${COLORS[i%COLORS.length]}"></span><div class="grow"><strong>${esc(s.name)}</strong><span>${esc(s.teacher||"No teacher")} ${s.room?"· "+esc(s.room):""}</span></div><button class="dots" onclick="editSubject('${s.id}')">⋯</button></div>`).join(""):`<div class="empty"><div>📚</div><strong>No subjects yet</strong><span>Add your subjects once, then reuse them in your schedule.</span><button onclick="addSubject()">Add subject</button></div>`}</section>`;
 }
 function settings(){
@@ -209,7 +210,7 @@ const STEPS=[
  {t:"Welcome to StudyFlow 👋",d:"A quick tour (under a minute) shows you where everything is. You can replay it anytime in Settings."},
  {v:"home",sel:".hero",t:"Your day at a glance",d:"Home shows today's classes and your next events, so you know what's coming."},
  {v:"home",sel:".iconbtn",t:"Quick add",d:"Tap ＋ anywhere to quickly add a subject, class or event."},
- {v:"subjects",sel:".pagehead .primary",t:"Start here: add a subject",d:"Type the name, teacher and room once, then pick the days and times (like Monday and Friday). It fills your schedule automatically."},
+ {v:"subjects",sel:".pagehead .primary",t:"Start here: add a subject",d:"Type the name, teacher and room once, then pick the days and times (like Monday and Friday). It fills your schedule automatically. Or tap Scan to import it from a photo."},
  {v:"schedule",sel:".daystrip",t:"Your weekly schedule",d:"Tap a day to see its classes. Use ＋ Class to add one-off classes or type a brand-new subject."},
  {v:"events",sel:".pagehead .primary",t:"Quizzes, exams & projects",d:"Add events with a date, time and a reminder. Filter them by type below."},
  {v:"settings",sel:".settinggroup",t:"Reminders",d:"Turn notifications on, choose how early class reminders arrive, and tap Send test to check they work. For best results, set StudyFlow's battery to Unrestricted in Android Settings."},
@@ -245,3 +246,60 @@ if(!data.tourDone)setTimeout(startTour,600);
 window.openBackup=()=>modal("Backup & restore",`<p class="muted">Tap Copy and paste it somewhere safe (Notes, WhatsApp to yourself). To restore, paste it back below and tap Restore.</p><textarea id="bk" rows="7" style="width:100%">${esc(JSON.stringify(data))}</textarea><button type="button" class="primary wide" onclick="copyBackup()">Copy backup</button><button type="button" class="delete wide" onclick="restoreBackup()">Restore from text above</button>`);
 window.copyBackup=async()=>{const t=document.querySelector("#bk");try{await navigator.clipboard.writeText(t.value);alert("Copied!")}catch(e){t.select();alert("Select all and copy the text manually.")}};
 window.restoreBackup=()=>{try{const d=JSON.parse(document.querySelector("#bk").value);if(!d.subjects||!d.classes||!d.events)throw 0;data=d;save();closeModal();shell();alert("Restored!")}catch(e){alert("That backup text isn't valid.")}};
+
+// ---------- Scan class program (photo -> OCR -> review -> schedule) ----------
+const DAYRE=/\b(mon(?:day)?|tue(?:s|sday)?|wed(?:nesday)?|thu(?:rs|rsday)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)\b/gi;
+const DAYMAP={mon:"Monday",tue:"Tuesday",wed:"Wednesday",thu:"Thursday",fri:"Friday",sat:"Saturday",sun:"Sunday"};
+function to24(h,m,ref){h=+h;if(h>=1&&h<=6)h+=12;let t=h*60+ +m;if(ref!=null&&t<=ref)t+=720;return t}
+function hhmm(t){t=t%1440;return String(Math.floor(t/60)).padStart(2,"0")+":"+String(t%60).padStart(2,"0")}
+window.parseProgram=function(text){
+ let days=[],out=[];
+ for(let raw of text.split(/\n/)){
+  let line=raw.replace(/[|_\[\]]/g," ").replace(/\s+/g," ").trim();if(!line)continue;
+  let tm=line.match(/(\d{1,2})[:.;](\d{2})\s*[-–—~]\s*(\d{1,2})[:.;](\d{2})/);
+  if(!tm){let f=[...line.matchAll(DAYRE)].map(x=>DAYMAP[x[1].slice(0,3).toLowerCase()]);if(f.length){days=[...new Set(f)]}continue}
+  let rest=line.slice(tm.index+tm[0].length).trim();
+  if(rest.length<3||/lunch|flag|total|break|vacant/i.test(rest)||!days.length)continue;
+  let a=to24(tm[1],tm[2]),b=to24(tm[3],tm[4],a);
+  let code="",m1=rest.match(/^([A-Z]{2,8}(?:[- ][A-Z0-9]{1,4})?)\s+(.*)$/);if(m1){code=m1[1];rest=m1[2]}
+  let name=rest,teacher="",m2=rest.match(/^(.*?)\s+(\d)\s+(\d)\s+(.*)$/);if(m2){name=m2[1];teacher=m2[4]}
+  name=name.replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9.)]+$/g,"").slice(0,60)||code;
+  out.push({name,teacher:teacher.trim(),room:"",days:[...days],start:hhmm(a),end:hhmm(b)});
+ }
+ return out;
+};
+window.openScan=()=>modal("Scan class program",`<p class="muted">Take a photo or pick one of your class program / COR. StudyFlow reads it and lets you fix everything before saving. The first scan needs internet.</p>
+<button type="button" class="primary wide" onclick="document.querySelector('#scancam').click()">📷 Take a photo</button>
+<button type="button" class="wide" onclick="document.querySelector('#scanpick').click()">🖼 Choose from gallery</button>
+<input id="scancam" type="file" accept="image/*" capture="environment" hidden onchange="scanFile(this.files[0])">
+<input id="scanpick" type="file" accept="image/*" hidden onchange="scanFile(this.files[0])">
+<p id="scanstat" class="muted"></p>
+<button type="button" class="wide" onclick="reviewScan([])">✍️ Skip scan, add rows by hand</button>`);
+function prep(file){return new Promise((res,rej)=>{const img=new Image();img.onload=()=>{const k=Math.min(1,2000/img.width),c=document.createElement("canvas");c.width=img.width*k;c.height=img.height*k;const x=c.getContext("2d");x.drawImage(img,0,0,c.width,c.height);const d=x.getImageData(0,0,c.width,c.height),p=d.data;for(let i=0;i<p.length;i+=4){let g=.3*p[i]+.59*p[i+1]+.11*p[i+2];g=Math.max(0,Math.min(255,(g-140)*1.5+140));p[i]=p[i+1]=p[i+2]=g}x.putImageData(d,0,0);res(c)};img.onerror=rej;img.src=URL.createObjectURL(file)})}
+window.scanFile=async f=>{
+ if(!f)return;const st=document.querySelector("#scanstat");
+ try{
+  st.textContent="Preparing photo…";const c=await prep(f);
+  st.textContent="Loading reader…";
+  const {createWorker}=await import("tesseract.js");
+  const w=await createWorker("eng",1,{logger:m=>{if(m.status==="recognizing text")st.textContent="Reading… "+Math.round(m.progress*100)+"%"}});
+  await w.setParameters({tessedit_pageseg_mode:"6",preserve_interword_spaces:"1"});
+  const {data}=await w.recognize(c);await w.terminate();
+  const rows=parseProgram(data.text);
+  reviewScan(rows,rows.length?"":"I couldn't find any classes in that photo. Add them by hand below, or retake a straighter, brighter photo.");
+ }catch(e){st.textContent="Scanning isn't available here ("+(e.message||e)+"). You can add rows by hand instead."}
+};
+let scanRows=[];
+function rowHTML(r,i){return `<div class="card scanrow" data-i="${i}"><div class="row"><label>Subject<input class="rn" value="${esc(r.name)}"></label><label>Teacher<input class="rt" value="${esc(r.teacher)}"></label></div><div class="row"><label>Room<input class="rr" value="${esc(r.room)}"></label><label>Start<input class="rs" type="time" value="${r.start}"></label><label>End<input class="re" type="time" value="${r.end}"></label></div><div class="chips">${DAYS.map(d=>`<label class="chip"><input type="checkbox" class="rd" value="${d}" ${r.days.includes(d)?"checked":""}><span>${d.slice(0,3)}</span></label>`).join("")}</div><button type="button" class="delete" onclick="this.closest('.scanrow').remove()">Remove</button></div>`}
+window.reviewScan=(rows,msg)=>{scanRows=rows;if(document.querySelector("#modal"))closeModal();modal("Review & edit",`<p class="muted">${msg||"Check each class. Fix anything that's wrong, then import."}</p><div id="scanlist">${rows.map(rowHTML).join("")}</div><button type="button" class="wide" onclick="addScanRow()">＋ Add row</button><button type="button" class="primary wide" onclick="importScan()">Import to my schedule</button>`)};
+window.addScanRow=()=>document.querySelector("#scanlist").insertAdjacentHTML("beforeend",rowHTML({name:"",teacher:"",room:"",days:[],start:"08:00",end:"09:00"},Date.now()));
+window.importScan=()=>{
+ let n=0;document.querySelectorAll(".scanrow").forEach(el=>{
+  const name=el.querySelector(".rn").value.trim(),days=[...el.querySelectorAll(".rd:checked")].map(x=>x.value);if(!name||!days.length)return;
+  const teacher=el.querySelector(".rt").value.trim(),room=el.querySelector(".rr").value.trim(),start=el.querySelector(".rs").value,end=el.querySelector(".re").value;
+  let sub=data.subjects.find(x=>x.name.toLowerCase()===name.toLowerCase());
+  if(!sub){sub={id:uid(),name,teacher,room,notes:""};data.subjects.push(sub)}else{if(teacher&&!sub.teacher)sub.teacher=teacher;if(room&&!sub.room)sub.room=room}
+  days.forEach(d=>{if(!data.classes.some(c=>c.subjectId===sub.id&&c.day===d&&c.start===start))data.classes.push({id:uid(),subjectId:sub.id,day:d,start,end,teacher,room});n++});
+ });
+ save();closeModal();go("schedule");alert(n+" classes added to your schedule.");
+};

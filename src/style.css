@@ -15,3 +15,8 @@
 #tour .tbtns button{border:0;border-radius:12px;padding:10px 14px;font-weight:600;background:#eee;color:#333}
 #tour .tbtns .primary{background:#7c5cff;color:#fff}
 #tour .tbtns .tskip{background:none;color:#888;padding-left:0}
+
+.scanbtn{width:100%;margin:0 0 14px;padding:14px;border-radius:16px;border:2px dashed #7c5cff;background:rgba(124,92,255,.08);color:#7c5cff;font-weight:700;font-size:15px}
+.modal{max-height:90vh;overflow:auto}
+.scanrow{margin-bottom:10px}
+.wide{width:100%;margin-top:8px}
