@@ -4,3 +4,14 @@
 .chip span{display:inline-block;padding:9px 12px;border-radius:999px;background:rgba(124,92,255,.12);font-weight:600;font-size:14px}
 .chip input:checked+span{background:#7c5cff;color:#fff}
 .setting select{max-width:110px}
+
+#tour{position:fixed;inset:0;z-index:9999}
+#tour .spot{position:fixed;border-radius:16px;box-shadow:0 0 0 9999px rgba(12,10,32,.74),0 0 0 3px #7c5cff;pointer-events:none;transition:all .25s ease;display:none}
+#tour .tip{position:fixed;left:16px;right:16px;max-width:420px;margin:0 auto;background:#fff;color:#1a1a2e;border-radius:20px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.35)}
+#tour .tip h3{margin:0 0 6px;font-size:18px}
+#tour .tip p{margin:0 0 14px;font-size:14.5px;line-height:1.45;color:#444}
+#tour .tbtns{display:flex;align-items:center;gap:8px}
+#tour .tcount{margin-left:auto;font-size:13px;color:#888}
+#tour .tbtns button{border:0;border-radius:12px;padding:10px 14px;font-weight:600;background:#eee;color:#333}
+#tour .tbtns .primary{background:#7c5cff;color:#fff}
+#tour .tbtns .tskip{background:none;color:#888;padding-left:0}

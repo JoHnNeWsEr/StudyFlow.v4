@@ -91,7 +91,7 @@ function settings(){
  <div class="settinggroup"><h3>Profile</h3><button class="setting" onclick="profile()"><span>👤</span><div><strong>${esc(data.profile.name||"Your profile")}</strong><small>${esc(data.profile.school||"Add your school information")}</small></div><b>›</b></button></div>
  <div class="settinggroup"><h3>Appearance</h3><button class="setting" onclick="toggleTheme()"><span>◐</span><div><strong>Theme</strong><small>${data.theme==="light"?"Light":"Dark"}</small></div><b>›</b></button></div>
  <div class="settinggroup"><h3>Reminders</h3><button class="setting" onclick="toggleNotifications()"><span>🔔</span><div><strong>Notifications</strong><small>${data.notifications?"Enabled":"Disabled"}</small></div><b>${data.notifications?"ON":"OFF"}</b></button><label class="setting"><span>⏰</span><div><strong>Class reminder</strong><small>Before each class starts</small></div><select onchange="setClassRemind(this.value)">${[[0,"Off"],[5,"5 min"],[10,"10 min"],[15,"15 min"],[30,"30 min"]].map(o=>`<option value="${o[0]}" ${(data.classRemind??10)==o[0]?"selected":""}>${o[1]}</option>`).join("")}</select></label><button class="setting" onclick="testNotify()"><span>🧪</span><div><strong>Send test notification</strong><small>Arrives in 5 seconds</small></div><b>TEST</b></button></div>
- <div class="settinggroup"><h3>Data</h3><button class="setting danger" onclick="resetData()"><span>↺</span><div><strong>Reset all data</strong><small>Remove subjects, classes and events</small></div><b>›</b></button></div>
+ <div class="settinggroup"><h3>Help</h3><button class="setting" onclick="startTour()"><span>🎓</span><div><strong>Replay tutorial</strong><small>A quick guided tour of the app</small></div><b>›</b></button></div><div class="settinggroup"><h3>Backup</h3><button class="setting" onclick="openBackup()"><span>💾</span><div><strong>Backup &amp; restore</strong><small>Save or move your data</small></div><b>›</b></button></div><div class="settinggroup"><h3>Data</h3><button class="setting danger" onclick="resetData()"><span>↺</span><div><strong>Reset all data</strong><small>Remove subjects, classes and events</small></div><b>›</b></button></div>
  <p class="version">StudyFlow • MVP 1.0</p></section>`;
 }
 
@@ -182,8 +182,9 @@ async function syncNotifications(){
    if(pending.notifications.length)await LocalNotifications.cancel({notifications:pending.notifications.map(n=>({id:n.id}))});
    if(!evs.length&&!cls.length)return;
    if(!await ensurePerm())return;
-   const list=[...evs.map(e=>({id:numId(e.id),title:e.title,body:body(e),schedule:{at:new Date(due(e)),allowWhileIdle:true}})),
-    ...cls.map(c=>({id:numId(c.id+"c"),title:subjectName(c.subjectId)+" starts in "+cm+" min",body:(c.room?"Room "+c.room+" · ":"")+fmtTime(c.start),schedule:{on:classAlarm(c,cm),allowWhileIdle:true}}))];
+   try{await LocalNotifications.createChannel({id:"reminders",name:"Reminders",description:"Class and event reminders",importance:5,visibility:1,vibration:true})}catch(e){}
+   const list=[...evs.map(e=>({channelId:"reminders",id:numId(e.id),title:e.title,body:body(e),schedule:{at:new Date(due(e)),allowWhileIdle:true}})),
+    ...cls.map(c=>({channelId:"reminders",id:numId(c.id+"c"),title:subjectName(c.subjectId)+" starts in "+cm+" min",body:(c.room?"Room "+c.room+" · ":"")+fmtTime(c.start),schedule:{on:classAlarm(c,cm),allowWhileIdle:true}}))];
    await LocalNotifications.schedule({notifications:list});
   }else if(evs.length&&await ensurePerm()){
    evs.filter(e=>due(e)-Date.now()<2147000000).forEach(e=>timers.push(setTimeout(()=>new Notification(e.title,{body:body(e),icon:"./icon-192.png"}),due(e)-Date.now())));
@@ -193,9 +194,54 @@ async function syncNotifications(){
 window.setClassRemind=v=>{data.classRemind=+v;save();shell()};
 window.testNotify=async()=>{
  try{
+  if(native)try{await LocalNotifications.createChannel({id:"reminders",name:"Reminders",description:"Class and event reminders",importance:5,visibility:1,vibration:true})}catch(e){}
   if(!await ensurePerm()){alert("Notifications are blocked. Allow them for StudyFlow in Android Settings > Apps > StudyFlow > Notifications.");return;}
-  if(native)await LocalNotifications.schedule({notifications:[{id:1,title:"StudyFlow",body:"Notifications are working! 🎉",schedule:{at:new Date(Date.now()+5000),allowWhileIdle:true}}]});
+  if(native)await LocalNotifications.schedule({notifications:[{channelId:"reminders",id:1,title:"StudyFlow",body:"Notifications are working! 🎉",schedule:{at:new Date(Date.now()+5000),allowWhileIdle:true}}]});
   else setTimeout(()=>new Notification("StudyFlow",{body:"Notifications are working! 🎉"}),5000);
  }catch(e){alert("Could not send: "+e.message)}
 };
 syncNotifications();
+
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)syncNotifications()});
+
+// ---------- First-run guided tour (spotlight) ----------
+const STEPS=[
+ {t:"Welcome to StudyFlow 👋",d:"A quick tour (under a minute) shows you where everything is. You can replay it anytime in Settings."},
+ {v:"home",sel:".hero",t:"Your day at a glance",d:"Home shows today's classes and your next events, so you know what's coming."},
+ {v:"home",sel:".iconbtn",t:"Quick add",d:"Tap ＋ anywhere to quickly add a subject, class or event."},
+ {v:"subjects",sel:".pagehead .primary",t:"Start here: add a subject",d:"Type the name, teacher and room once, then pick the days and times (like Monday and Friday). It fills your schedule automatically."},
+ {v:"schedule",sel:".daystrip",t:"Your weekly schedule",d:"Tap a day to see its classes. Use ＋ Class to add one-off classes or type a brand-new subject."},
+ {v:"events",sel:".pagehead .primary",t:"Quizzes, exams & projects",d:"Add events with a date, time and a reminder. Filter them by type below."},
+ {v:"settings",sel:".settinggroup",t:"Reminders",d:"Turn notifications on, choose how early class reminders arrive, and tap Send test to check they work. For best results, set StudyFlow's battery to Unrestricted in Android Settings."},
+ {t:"You're all set! 🎉",d:"Add your first subject to get started."}
+];
+let tourI=0;
+function tourEl(){return document.getElementById("tour")}
+window.startTour=()=>{tourI=0;if(!tourEl()){const t=document.createElement("div");t.id="tour";t.innerHTML='<div class="spot"></div><div class="tip"><h3></h3><p></p><div class="tbtns"><button class="tskip">Skip</button><span class="tcount"></span><button class="tback">Back</button><button class="tnext primary">Next</button></div></div>';document.body.appendChild(t);
+ t.querySelector(".tskip").onclick=endTour;t.querySelector(".tback").onclick=()=>{tourI=Math.max(0,tourI-1);showStep()};
+ t.querySelector(".tnext").onclick=()=>{tourI>=STEPS.length-1?endTour():(tourI++,showStep())};
+ window.addEventListener("resize",showStep)}showStep()};
+function endTour(){tourEl()?.remove();window.removeEventListener("resize",showStep);data.tourDone=true;save();if(view!=="subjects")go("subjects")}
+function showStep(){
+ const t=tourEl();if(!t)return;const st=STEPS[tourI];
+ if(st.v&&view!==st.v)go(st.v);
+ requestAnimationFrame(()=>{
+  const spot=t.querySelector(".spot"),tip=t.querySelector(".tip"),el=st.sel&&document.querySelector(st.sel);
+  t.querySelector("h3").textContent=st.t;t.querySelector("p").textContent=st.d;
+  t.querySelector(".tcount").textContent=(tourI+1)+"/"+STEPS.length;
+  t.querySelector(".tback").style.visibility=tourI?"visible":"hidden";
+  t.querySelector(".tnext").textContent=tourI>=STEPS.length-1?"Done":"Next";
+  tip.style.top=tip.style.bottom="";
+  if(el){
+   el.scrollIntoView({block:"center"});
+   const r=el.getBoundingClientRect(),p=6;
+   Object.assign(spot.style,{display:"block",left:r.left-p+"px",top:r.top-p+"px",width:r.width+2*p+"px",height:r.height+2*p+"px"});
+   if(r.top+r.height/2>innerHeight/2)tip.style.bottom=innerHeight-r.top+18+"px";else tip.style.top=r.bottom+18+"px";
+  }else{spot.style.display="none";tip.style.top=Math.max(40,innerHeight/2-110)+"px";}
+ });
+}
+if(!data.tourDone)setTimeout(startTour,600);
+
+window.openBackup=()=>modal("Backup & restore",`<p class="muted">Tap Copy and paste it somewhere safe (Notes, WhatsApp to yourself). To restore, paste it back below and tap Restore.</p><textarea id="bk" rows="7" style="width:100%">${esc(JSON.stringify(data))}</textarea><button type="button" class="primary wide" onclick="copyBackup()">Copy backup</button><button type="button" class="delete wide" onclick="restoreBackup()">Restore from text above</button>`);
+window.copyBackup=async()=>{const t=document.querySelector("#bk");try{await navigator.clipboard.writeText(t.value);alert("Copied!")}catch(e){t.select();alert("Select all and copy the text manually.")}};
+window.restoreBackup=()=>{try{const d=JSON.parse(document.querySelector("#bk").value);if(!d.subjects||!d.classes||!d.events)throw 0;data=d;save();closeModal();shell();alert("Restored!")}catch(e){alert("That backup text isn't valid.")}};
