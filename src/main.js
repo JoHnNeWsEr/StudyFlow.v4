@@ -28,6 +28,10 @@ function esc(s=""){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt
 function fmtDate(x){if(!x)return "";return new Date(x+"T00:00:00").toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"});}
 function fmtTime(x){if(!x)return "";let [h,m]=x.split(":");let d=new Date();d.setHours(+h,+m);return d.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});}
 function todayName(){return new Date().toLocaleDateString(undefined,{weekday:"long"});}
+function initials(n){const p=String(n||"").trim().split(/\s+/).filter(Boolean);return p.length?(p[0][0]+(p[1]?p[1][0]:"")).toUpperCase():"🎓"}
+function headChips(){const dn=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][new Date().getDay()],t=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
+ const c=data.classes.filter(x=>x.day===dn).length,e=data.events.filter(x=>x.status!=="Completed"&&x.date>=t).length;
+ return `<span>📚 ${c} class${c===1?"":"es"} today</span><span>⏰ ${e} upcoming</span>`}
 function greeting(){let h=new Date().getHours();return h<12?"Good morning":h<18?"Good afternoon":"Good evening";}
 function subjectName(id){return data.subjects.find(s=>s.id===id)?.name||"No subject";}
 function icon(type){return ({Quiz:"✦",Exam:"◈",Oral:"◉",Project:"◇",Assignment:"✓",Other:"•"})[type]||"•";}
@@ -36,15 +40,24 @@ function shell(){
  document.documentElement.dataset.theme=data.theme;
  document.querySelector("#app").innerHTML=`
  <div class="app">
-  <header class="top"><div><div class="eyebrow">STUDYFLOW</div><h1>${greeting()}${data.profile.name?", "+esc(data.profile.name):""} <span>👋</span></h1></div>
-  <button class="iconbtn" onclick="openQuick()">＋</button></header>
+  <header class="top"><div class="hgrid"><div class="avatar">${initials(data.profile.name)}</div>
+   <div class="htext"><div class="eyebrow">${greeting().toUpperCase()} ${new Date().getHours()<12?"☀️":new Date().getHours()<18?"🌤️":"🌙"}</div><h1 class="hname">${data.profile.name?esc(data.profile.name):"Ready to study?"}</h1></div>
+   <button class="iconbtn" onclick="openQuick()">＋</button></div>
+   <div class="hchips">${headChips()}</div></header>
   <main id="content"></main>
   <nav class="nav">
-   ${nav("home","⌂","Home")}${nav("schedule","▦","Schedule")}${nav("events","✓","Events")}${nav("subjects","◌","Subjects")}${nav("settings","⚙","Settings")}
+   ${nav("home",navIcon("home"),"Home")}${nav("schedule",navIcon("schedule"),"Schedule")}${nav("events",navIcon("events"),"Events")}${nav("subjects",navIcon("subjects"),"Subjects")}${nav("settings",navIcon("settings"),"Settings")}
   </nav>
  </div>`;
  render();
 }
+function navIcon(n){const P={
+ home:'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>',
+ schedule:'<rect x="3" y="4" width="18" height="17" rx="3"/><path d="M3 9h18M8 2v4M16 2v4"/>',
+ events:'<circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/>',
+ subjects:'<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M6.5 17H20v4H6.5A2.5 2.5 0 0 1 4 18.5"/>',
+ settings:'<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>'};
+ return '<svg viewBox="0 0 24 24">'+P[n]+'</svg>'}
 function nav(v,i,t){return `<button class="${view===v?"active":""}" onclick="go('${v}')"><b>${i}</b><span>${t}</span></button>`}
 function go(v){view=v;shell();}
 
@@ -243,7 +256,7 @@ function showStep(){
   }else{spot.style.display="none";tip.style.top=Math.max(40,innerHeight/2-110)+"px";}
  });
 }
-if(!data.tourDone)setTimeout(startTour,600);
+if(!data.tourDone)setTimeout(startTour,1900);
 
 window.openBackup=()=>modal("Backup & restore",`<p class="muted">Tap Copy and paste it somewhere safe (Notes, WhatsApp to yourself). To restore, paste it back below and tap Restore.</p><textarea id="bk" rows="7" style="width:100%">${esc(JSON.stringify(data))}</textarea><button type="button" class="primary wide" onclick="copyBackup()">Copy backup</button><button type="button" class="delete wide" onclick="restoreBackup()">Restore from text above</button>`);
 window.copyBackup=async()=>{const t=document.querySelector("#bk");try{await navigator.clipboard.writeText(t.value);alert("Copied!")}catch(e){t.select();alert("Select all and copy the text manually.")}};
@@ -396,3 +409,17 @@ window.openSound=async()=>{
  <div id="sndlist">${["default",...list].map(n=>`<div class="setting snd"><span onclick="pickSound('${n}')">${cur===n?"●":"○"}</span><div onclick="pickSound('${n}')"><strong>${n==="default"?"Phone default":prettyS(n)}</strong></div>${n==="default"?"":`<button type="button" class="tiny" onclick="playSound('${n}')">▶</button>`}</div>`).join("")}</div>
  <p class="muted">Play for</p><div class="chips">${[10,15,20].map(d=>`<label class="chip"><input type="radio" name="sd" ${d===dur?"checked":""} onchange="setDur(${d})"><span>${d} sec</span></label>`).join("")}</div></div>
  ${native?`<button type="button" class="primary wide" onclick="testNotify()">Send test notification</button><p class="muted">Your phone must not be on silent or Do Not Disturb to hear it.</p>`:`<p class="muted">Custom sounds work in the installed Android app.</p>`}`)};
+
+// ---------- Animated intro / splash ----------
+(function(){
+ const sp=document.createElement("div");sp.id="splash";
+ sp.innerHTML=`<div class="sp-blocks">${[0,1,2,3,4,5,6].map(i=>`<i style="--i:${i}"></i>`).join("")}</div>
+ <div class="sp-center"><svg class="sp-ring" viewBox="0 0 120 120"><circle cx="60" cy="60" r="54"/></svg><div class="sp-logo"><div class="sp-o"></div></div></div>
+ <div class="sp-name">StudyFlow</div><div class="sp-tag">Plan · Focus · Achieve</div>`;
+ document.body.appendChild(sp);
+ const out=()=>{sp.classList.add("out");document.querySelector("#app").classList.add("in");setTimeout(()=>sp.remove(),450)};
+ setTimeout(out,matchMedia("(prefers-reduced-motion: reduce)").matches?450:1350);
+})();
+
+// tiny haptic tick on every button press (Android)
+document.addEventListener("pointerdown",e=>{if(e.target.closest&&e.target.closest("button")&&navigator.vibrate)try{navigator.vibrate(8)}catch(x){}},{passive:true});
