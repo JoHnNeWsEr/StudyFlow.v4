@@ -380,26 +380,57 @@ window.openScan=()=>modal("Scan class program",`<div class="scanhero"><div class
 <div class="scanprog" id="scanprog"><div class="bar"><i id="scanbar"></i></div><p id="scanstat"></p></div>
 <button type="button" class="linkbtn" onclick="reviewScan([])">✍️ Skip and add rows by hand</button>`);
 function prep(file){return new Promise((res,rej)=>{const img=new Image();img.onload=()=>{
- const k=Math.min(1,2000/img.width),W=Math.round(img.width*k),H=Math.round(img.height*k),c=document.createElement("canvas");c.width=W;c.height=H;const x=c.getContext("2d");x.drawImage(img,0,0,W,H);
- const d=x.getImageData(0,0,W,H),p=d.data,g=new Float32Array(W*H);
+ const k=Math.min(1,2200/img.width),W=Math.round(img.width*k),H=Math.round(img.height*k),base=document.createElement("canvas");base.width=W;base.height=H;const x=base.getContext("2d");x.drawImage(img,0,0,W,H);
+ const src=x.getImageData(0,0,W,H),p=src.data,g=new Float32Array(W*H);
  for(let i=0,j=0;i<p.length;i+=4,j++)g[j]=.3*p[i]+.59*p[i+1]+.11*p[i+2];
+ // Keep a clean grayscale version as well as a locally-thresholded version. Phone photos of
+ // printed class programs often contain shadows; a single threshold pass can erase faint rows.
+ const gray=document.createElement("canvas");gray.width=W;gray.height=H;gray.getContext("2d").putImageData(src,0,0);
  const S=W+1,I=new Float64Array(S*(H+1));for(let y=1;y<=H;y++){let r=0;for(let z=1;z<=W;z++){r+=g[(y-1)*W+z-1];I[y*S+z]=I[(y-1)*S+z]+r}}
- const R=Math.max(15,Math.round(W/60));
- for(let y=0;y<H;y++){const y0=Math.max(0,y-R),y1=Math.min(H-1,y+R);for(let z=0;z<W;z++){const x0=Math.max(0,z-R),x1=Math.min(W-1,z+R),n=(x1-x0+1)*(y1-y0+1),m=(I[(y1+1)*S+x1+1]-I[y0*S+x1+1]-I[(y1+1)*S+x0]+I[y0*S+x0])/n,v=g[y*W+z]<m*.88?0:255,q=(y*W+z)*4;p[q]=p[q+1]=p[q+2]=v}}
- x.putImageData(d,0,0);res(c)};img.onerror=rej;img.src=URL.createObjectURL(file)})}
+ const R=Math.max(15,Math.round(W/60)),bw=document.createElement("canvas");bw.width=W;bw.height=H;const bd=bw.getContext("2d").createImageData(W,H);
+ for(let y=0;y<H;y++){const y0=Math.max(0,y-R),y1=Math.min(H-1,y+R);for(let z=0;z<W;z++){const x0=Math.max(0,z-R),x1=Math.min(W-1,z+R),n=(x1-x0+1)*(y1-y0+1),m=(I[(y1+1)*S+x1+1]-I[y0*S+x1+1]-I[(y1+1)*S+x0]+I[y0*S+x0])/n,v=g[y*W+z]<m*.88?0:255,q=(y*W+z)*4;bd.data[q]=bd.data[q+1]=bd.data[q+2]=v;bd.data[q+3]=255}}
+ bw.getContext("2d").putImageData(bd,0,0);res([bw,gray])};img.onerror=rej;img.src=URL.createObjectURL(file)})}
+function mergeScanRows(all){
+ const out=[];
+ const norm=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"");
+ const score=r=>(r.name||"").length+(r.teacher||"").length+(r.room||"").length;
+ for(const r of all){if(!r||!r.name||!r.days?.length||!r.start||!r.end)continue;
+  for(const d of r.days){
+   const hit=out.find(x=>x.day===d&&x.start===r.start&&x.end===r.end);
+   if(!hit){out.push({...r,day:d,days:[d]});continue}
+   // Multiple OCR passes can see the same row with slightly different text. Keep the
+   // richer subject/teacher/room instead of creating duplicate schedule meetings.
+   if(score(r)>score(hit)){hit.name=r.name;hit.teacher=r.teacher;hit.room=r.room}
+  }
+ }
+ // Re-group identical class meetings into multi-day review rows.
+ const grouped=[];
+ for(const r of out){let g=grouped.find(x=>norm(x.name)===norm(r.name)&&x.start===r.start&&x.end===r.end&&norm(x.teacher)===norm(r.teacher));if(!g)grouped.push({...r,days:[r.day]});else if(!g.days.includes(r.day))g.days.push(r.day)}
+ return grouped.map(x=>{const y={...x};delete y.day;return y});
+}
 window.scanFile=async f=>{
  if(!f)return;const st=document.querySelector("#scanstat"),bar=p=>{document.querySelector("#scanprog").classList.add("on");document.querySelector("#scanbar").style.width=p+"%"};
  try{
-  bar(8);st.textContent="Preparing photo…";const c=await prep(f);
+  bar(8);st.textContent="Preparing photo…";const canvases=await prep(f);
   bar(20);st.textContent="Loading the reader (first time needs internet)…";
   const {createWorker}=await import("tesseract.js");
-  const w=await createWorker("eng",1,{logger:m=>{if(m.status==="recognizing text"){bar(25+Math.round(m.progress*70));st.textContent="Reading your schedule… "+Math.round(m.progress*100)+"%"}}});
-  await w.setParameters({tessedit_pageseg_mode:"6",preserve_interword_spaces:"1"});
-  const {data}=await w.recognize(c);await w.terminate();
-  const rows=parseProgram(data.text,{lines:getLines(data)});
-  reviewScan(rows,rows.length?"":"I couldn't find any classes in that photo. Add them by hand below, or retake a straighter, brighter photo.");
+  const w=await createWorker("eng",1,{logger:m=>{if(m.status==="recognizing text"){bar(20+Math.round(m.progress*72));st.textContent="Reading your schedule… "+Math.round(m.progress*100)+"%"}}});
+  await w.setParameters({preserve_interword_spaces:"1"});
+  const all=[];
+  for(let i=0;i<canvases.length;i++){
+   await w.setParameters({tessedit_pageseg_mode:i===0?"6":"11"});
+   const {data}=await w.recognize(canvases[i]);
+   const rows=parseProgram(data.text,{lines:getLines(data)});
+   // A second, plain-text pass is useful when OCR word boxes have poor column coordinates.
+   const plain=parseProgram(data.text,null);
+   all.push(...rows,...plain);
+  }
+  await w.terminate();
+  const rows=mergeScanRows(all);
+  reviewScan(rows,rows.length?`Found ${rows.length} class rows. Review them before importing — OCR can misread printed text.` : "I couldn't find any classes in that photo. Add them by hand below, or retake a straighter, brighter photo.");
  }catch(e){st.textContent="Scanning isn't available here ("+(e.message||e)+"). You can add rows by hand instead."}
 };
+
 let scanRows=[];
 function rowHTML(r,i){return `<div class="card scanrow" data-i="${i}"><div class="row"><label>Subject<input class="rn" value="${esc(r.name)}"></label><label>Teacher<input class="rt" value="${esc(r.teacher)}"></label></div><div class="row"><label>Room<input class="rr" value="${esc(r.room)}"></label><label>Start<input class="rs" type="time" value="${r.start}"></label><label>End<input class="re" type="time" value="${r.end}"></label></div><div class="chips">${DAYS.map(d=>`<label class="chip"><input type="checkbox" class="rd" value="${d}" ${r.days.includes(d)?"checked":""}><span>${d.slice(0,3)}</span></label>`).join("")}</div><button type="button" class="delete" onclick="this.closest('.scanrow').remove()">Remove</button></div>`}
 window.reviewScan=(rows,msg)=>{scanRows=rows;if(document.querySelector("#modal"))closeModal();modal("Review & edit",`<p class="muted">${msg||"Check each class. Fix anything that's wrong, then import."}</p><div id="scanlist">${rows.map(rowHTML).join("")}</div><button type="button" class="wide" onclick="addScanRow()">＋ Add row</button><button type="button" class="primary wide" onclick="importScan()">Import to my schedule</button>`)};
