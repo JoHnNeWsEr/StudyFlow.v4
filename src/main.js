@@ -30,7 +30,7 @@ function fmtTime(x){if(!x)return "";let [h,m]=x.split(":");let d=new Date();d.se
 function todayName(){return new Date().toLocaleDateString(undefined,{weekday:"long"});}
 function initials(n){const p=String(n||"").trim().split(/\s+/).filter(Boolean);return p.length?(p[0][0]+(p[1]?p[1][0]:"")).toUpperCase():"🎓"}
 function headChips(){const dn=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][new Date().getDay()],t=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
- const c=data.classes.filter(x=>x.day===dn).length,e=data.events.filter(x=>x.status!=="Completed"&&x.date>=t).length;
+ const c=data.classes.filter(x=>x.day===dn).length,e=data.events.filter(x=>x.status!=="Completed").length;
  return `<span>📚 ${c} class${c===1?"":"es"} today</span><span>⏰ ${e} upcoming</span>`}
 function greeting(){let h=new Date().getHours();return h<12?"Good morning":h<18?"Good afternoon":"Good evening";}
 function subjectName(id){return data.subjects.find(s=>s.id===id)?.name||"No subject";}
@@ -224,14 +224,16 @@ document.addEventListener("visibilitychange",()=>{if(!document.hidden)syncNotifi
 
 // ---------- First-run guided tour (spotlight) ----------
 const STEPS=[
- {t:"Welcome to StudyFlow 👋",d:"A quick tour (under a minute) shows you where everything is. You can replay it anytime in Settings."},
- {v:"home",sel:".hero",t:"Your day at a glance",d:"Home shows today's classes and your next events, so you know what's coming."},
+ {t:"Welcome to StudyFlow 👋",d:"A quick tour (about a minute) shows you where everything is. You can replay it anytime in Settings → Replay tutorial."},
+ {v:"home",sel:".top",t:"Your day at a glance",d:"Home shows today's classes and your next events, so you always know what's coming. Tap your photo circle to add a profile picture."},
  {v:"home",sel:".iconbtn",t:"Quick add",d:"Tap ＋ anywhere to quickly add a subject, class or event."},
- {v:"subjects",sel:".pagehead .primary",t:"Start here: add a subject",d:"Type the name, teacher and room once, then pick the days and times (like Monday and Friday). It fills your schedule automatically. Or tap Scan to import it from a photo."},
+ {v:"subjects",sel:".scanbtn",t:"Scan your COR or class program",d:"Snap a photo of your COR or schedule and StudyFlow reads the subjects, teachers and times for you. You review and fix everything before it's saved."},
+ {v:"subjects",sel:".pagehead .primary",t:"Or add a subject by hand",d:"Type the name, teacher and room once, then pick the days and times (like Monday and Friday). It fills your schedule automatically."},
  {v:"schedule",sel:".daystrip",t:"Your weekly schedule",d:"Tap a day to see its classes. Use ＋ Class to add one-off classes or type a brand-new subject."},
- {v:"events",sel:".pagehead .primary",t:"Quizzes, exams & projects",d:"Add events with a date, time and a reminder. Filter them by type below."},
- {v:"settings",sel:".settinggroup",t:"Reminders",d:"Turn notifications on, choose how early class reminders arrive, and tap Send test to check they work. For best results, set StudyFlow's battery to Unrestricted in Android Settings."},
- {t:"You're all set! 🎉",d:"Add your first subject to get started."}
+ {v:"events",sel:".pagehead .primary",t:"Quizzes, exams & projects",d:"Add events with a date, time and a reminder. Tap the circle on any event to mark it done — filter by type or by Done below."},
+ {v:"settings",sel:".settinggroup",t:"Reminders & sound",d:"Turn notifications on, choose how early class reminders arrive, and pick a notification sound with its own play length. Tap Send test to check it works."},
+ {v:"settings",sel:"[onclick=\"openBackup()\"]",t:"Keep your data safe",d:"Backup & restore saves a file with everything in StudyFlow — subjects, classes, events and your photo — so you never lose it, even if you reinstall."},
+ {t:"You're all set! 🎉",d:"Add your first subject, or scan your COR, to get started."}
 ];
 let tourI=0;
 function tourEl(){return document.getElementById("tour")}
@@ -275,58 +277,70 @@ function to24(h,m,ref,ap){h=+h;if(ap)h=(h%12)+(ap==="p"?12:0);else if(h>=1&&h<=6
 function hhmm(t){t=t%1440;return String(Math.floor(t/60)).padStart(2,"0")+":"+String(t%60).padStart(2,"0")}
 function lineDays(pre){
  const f=[...pre.matchAll(DAYRE)].map(x=>DAYMAP[x[1].slice(0,3).toLowerCase()]);if(f.length)return[...new Set(f)];
- for(const tk of pre.split(/[\s\/,]+/)){if(tk&&tk.length<=6&&/^(?:Th|Su|Sa|M|T|W|F|S)+$/i.test(tk)){return[...new Set([...tk.matchAll(/Th|Su|Sa|M|T|W|F|S/gi)].map(x=>CODEMAP[x[0].toLowerCase()]))]}}
- return[];
+ const out=[];for(const tk of pre.split(/[\s\/,]+/)){if(tk&&tk.length<=6&&/^(?:Th|Su|Sa|M|T|W|F|S)+$/i.test(tk))out.push(...[...tk.matchAll(/Th|Su|Sa|M|T|W|F|S/gi)].map(x=>CODEMAP[x[0].toLowerCase()]))}
+ return[...new Set(out)];
 }
 function lev(a,b){const m=[];for(let i=0;i<=a.length;i++){m[i]=[i];for(let j=1;j<=b.length;j++)m[i][j]=i?Math.min(m[i-1][j]+1,m[i][j-1]+1,m[i-1][j-1]+(a[i-1]===b[j-1]?0:1)):j}return m[a.length][b.length]}
-const HW={time:["time"],desc:["description","descriptive","title"],course:["course","code"],units:["units","unit"],hours:["hours","hrs","hour"],inst:["instructor","professor","teacher","faculty"],room:["room","rm"],subj:["subject"]};
-function hdrKeys(words){const ks={};for(const w of words){const t=w.t.toLowerCase().replace(/[^a-z]/g,"");if(t.length<2)continue;for(const k in HW){if(ks[k]!=null)continue;if(HW[k].some(h=>h.length<=3?t===h:(t.startsWith(h)||lev(t,h)<=(h.length<=5?1:2)))){ks[k]=w.x;break}}}return ks}
-function findCols(lines){
- let best=null,n=0;for(const l of lines){const k=hdrKeys(l.words);const c=Object.keys(k).length;if(c>n){n=c;best=l}}
- if(!best||n<2)return{};const h=best.y1-best.y0||30;
- const near=lines.filter(l=>Math.abs(l.y0-best.y0)<3*h).flatMap(l=>l.words),c=hdrKeys(near);
- if(c.desc==null&&c.subj!=null)c.desc=c.subj;return c;
-}
+// Column headers we can recognize on ANY class-schedule table (COR, class program, custom layouts).
+// desc/subj -> the subject name column. inst -> teacher. time -> the time column. days -> explicit day-code column (TF, MTH, WED...).
+// Everything else (course, section, units, hours, lec, lab, room, bldg) is recognized ONLY so it doesn't get mixed into desc/inst/time.
+const HW={
+ time:["time"],days:["days","day"],
+ desc:["description","descriptive","title"],subj:["subject"],
+ course:["course","code"],section:["section","sec"],
+ units:["units","unit"],hours:["hours","hrs","hour"],lec:["lec","lecture"],lab:["lab","laboratory"],
+ inst:["instructor","professor","teacher","faculty"],room:["room","rm"],bldg:["bldg","building"]
+};
+function hdrKeys(words){const ks={};for(const w of words){const t=(w.t||"").toLowerCase().replace(/[^a-z]/g,"");if(t.length<2)continue;for(const k in HW){if(ks[k]!=null)continue;if(HW[k].some(h=>h.length<=3?t===h:(t.startsWith(h)||lev(t,h)<=(h.length<=5?1:2)))){ks[k]=w.x;break}}}return ks}
+function findHeader(lines){let best=null,n=0;for(const l of lines){const k=hdrKeys(l.words);const c=Object.keys(k).length;if(c>n){n=c;best={line:l,keys:k}}}return n>=2?best:null}
 const okw=w=>w.c==null||w.c>=45;
-const pick=(ws,lo,hi)=>ws.filter(w=>w.x>=lo&&w.x<hi&&okw(w)).map(w=>w.t).join(" ").replace(/[|_\[\]]/g," ").replace(/\s+/g," ").trim();
-function cleanTeacher(t){t=t.replace(/[|_]/g," ").replace(/\s+/g," ").trim();const p=t.split(" ");if(p.length>1&&/^[A-Za-z]{1,2}$/.test(p[p.length-1]))p.pop();return p.join(" ")}
+function assignCols(words,bounds){ // bounds: [{key,x0,x1}] sorted by x
+ const out={};for(const b of bounds)out[b.key]="";
+ for(const w of words){if(!okw(w))continue;const b=bounds.find(b=>w.x>=b.x0&&w.x<b.x1)||bounds[bounds.length-1];out[b.key]=(out[b.key]?out[b.key]+" ":"")+w.t}
+ for(const k in out)out[k]=out[k].replace(/[|_\[\]]/g," ").replace(/\s+/g," ").trim();
+ return out;
+}
+function makeBounds(keys){
+ const KEEP=["desc","subj","time","days","inst"],xs=Object.entries(keys).sort((a,b)=>a[1]-b[1]);
+ const bounds=[];for(let i=0;i<xs.length;i++){const[k,x]=xs[i],x0=i===0?-1e9:(xs[i-1][1]+x)/2,x1=i===xs.length-1?1e9:(x+xs[i+1][1])/2;bounds.push({key:k,x0,x1})}
+ return{bounds,has:k=>keys[k]!=null};
+}
+function cleanTeacher(t){t=t.replace(/[|_]/g," ").replace(/\s+/g," ").trim();const p=t.split(" ");if(p.length>1&&/^[A-Za-z]{1,2}$/.test(p[p.length-1])&&!/^[A-Z]\.$/.test(p[p.length-1]))p.pop();return p.join(" ")}
 function cleanName(n){return n.replace(/^[^A-Za-z0-9]+|[\s|,;:.\-]+$/g,"").replace(/\s+\d(\s+\d)?$/,"").slice(0,140)}
 window.parseProgram=function(text,data){
  const L=data&&data.lines&&data.lines.length?data.lines:null,lines=[];
  if(L)for(const l of L){const ws=(l.words||[]).map(w=>({t:w.text,x:(w.bbox.x0+w.bbox.x1)/2,c:w.confidence}));lines.push({text:fixT(l.text.replace(/[|_\[\]]/g," ").replace(/\s+/g," ").trim()),words:ws,y0:l.bbox.y0,y1:l.bbox.y1})}
  else for(const t of text.split(/\n/))lines.push({text:fixT(t.replace(/[|_\[\]]/g," ").replace(/\s+/g," ").trim()),words:null});
- const c=L?findCols(lines):{},useCols=!!(L&&c.desc!=null&&c.inst!=null);
- let dS=0,dE=1e9,iS=1e9,rS=1e9;
- if(useCols){
-  if(c.units==null||c.hours==null){const xs=[];for(const l of lines)if(TIMERE.test(l.text))for(const w of l.words)if(/^\d$/.test(w.t)&&w.x>c.desc&&w.x<c.inst-30)xs.push(w.x);xs.sort((a,b)=>a-b);
-   if(xs.length>=2){let g=0,k=0;for(let i=1;i<xs.length;i++)if(xs[i]-xs[i-1]>g){g=xs[i]-xs[i-1];k=i}if(g>15){const A=xs.slice(0,k),B=xs.slice(k);c.units=A.reduce((a,b)=>a+b,0)/A.length;c.hours=B.reduce((a,b)=>a+b,0)/B.length}}}
-  const w=(c.units!=null&&c.hours!=null)?c.hours-c.units:0;
-  dS=c.course!=null?c.course+(c.desc-c.course)*.3:(c.time!=null?(c.time+c.desc)/2:0);
-  dE=w>0?c.units-w*.5:(c.desc+c.inst)/2;iS=w>0?c.hours+w*.5:dE;
-  rS=c.room!=null?(c.inst+c.room)/2:(w>0?c.inst+(c.inst-c.hours)*.8:1e9)}
- let days=[],out=[],prev=null,pl=null;
+ const hdr=L?findHeader(lines):null,useCols=!!(hdr&&(hdr.keys.desc!=null||hdr.keys.subj!=null));
+ let CB=null;
+ if(useCols){const keys={...hdr.keys};if(keys.desc==null)keys.desc=keys.subj;CB=makeBounds(keys)}
+ let headingDays=[],days=[],out=[],prev=null,pl=null;
  for(const l of lines){
   const line=l.text;if(!line)continue;
-  const tm=line.match(TIMERE),ok=tm&&+tm[1]<24&&+tm[4]<24&&+tm[2]<60&&+tm[5]<60;
+  if(/total|number of units|prepared|noted|approved|note:/i.test(line)){prev=null;continue}
+  let timeText=line,daysText="";
+  if(useCols&&l.words){const c=assignCols(l.words,CB.bounds);timeText=CB.has("time")?c.time:line;daysText=CB.has("days")?c.days:""}
+  const tm=timeText.match(TIMERE),ok=tm&&+tm[1]<24&&+tm[4]<24&&+tm[2]<60&&+tm[5]<60;
   if(!ok){
    const f=lineDays(line.match(DAYRE)?line:"");
-   if(f.length){days=f;prev=null;continue}
-   if(prev&&useCols&&pl&&!/total|number of units|prepared|noted|approved/i.test(line)&&l.y0-pl.y1<(pl.y1-pl.y0)*.9){
-    const d=pick(l.words,dS,dE),i=pick(l.words,iS,rS);
-    if(d)prev.name=cleanName(prev.name+" "+d);if(i)prev.teacher=cleanTeacher((prev.teacher?prev.teacher+" ":"")+i);pl=l}
+   if(f.length){headingDays=f;prev=null;continue}
+   if(prev&&useCols&&pl&&l.y0-pl.y1<(pl.y1-pl.y0)*.9){
+    const c=assignCols(l.words,CB.bounds);
+    if(c.desc)prev.name=cleanName(prev.name+" "+c.desc);if(c.inst)prev.teacher=cleanTeacher((prev.teacher?prev.teacher+" ":"")+c.inst);pl=l}
    continue}
-  const after=line.slice(tm.index+tm[0].length).trim();
-  if(/lunch|flag|break|vacant|total/i.test(after)){prev=null;continue}
   let name="",teacher="";
-  if(useCols&&l.words){name=pick(l.words,dS,dE);teacher=pick(l.words,iS,rS)}
-  else{let rest=after,m1=rest.match(/^(\S+(?:\s+\d{1,4}[A-Za-z]?)?)\s+(.+)$/);
+  if(useCols&&l.words){const c=assignCols(l.words,CB.bounds);name=c.desc;teacher=c.inst||""}
+  else{const after=line.slice(tm.index+tm[0].length).trim();
+   if(/lunch|flag|break|vacant/i.test(after)){prev=null;continue}
+   let rest=after,m1=rest.match(/^(\S+(?:\s+\d{1,4}[A-Za-z]?)?)\s+(.+)$/);
    if(m1&&(/\d/.test(m1[1])||/-/.test(m1[1])||/^[A-Z]{2,8}$/.test(m1[1])))rest=m1[2];
    let m2=rest.match(/^(.*?)\s+\d\s+\d\s+(.*)$/),m3;
    if(m2){name=m2[1];teacher=m2[2]}else if((m3=rest.match(TEACH))&&m3.index>2){teacher=m3[1];name=rest.slice(0,m3.index)}else name=rest}
   name=cleanName(name);teacher=cleanTeacher(teacher);
-  if(!name&&!teacher){prev=null;continue}
-  const pre=useCols&&l.words?l.words.filter(w=>w.x<dS).map(w=>w.t).join(" "):line.slice(0,tm.index);
-  const d=lineDays(pre).length?lineDays(pre):days;if(!d.length){prev=null;continue}
+  if(!name){prev=null;continue}
+  let d=daysText?lineDays(daysText):[];
+  if(!d.length){const pre=useCols&&l.words?l.words.filter(w=>w.x<(CB?CB.bounds.find(b=>b.key==="desc").x0:0)).map(w=>w.t).join(" "):line.slice(0,tm.index);d=lineDays(pre).length?lineDays(pre):headingDays}
+  if(!d.length){prev=null;continue}
   const apE=tm[6]?(/p/i.test(tm[6])?"p":"a"):null,apS=tm[3]?(/p/i.test(tm[3])?"p":"a"):apE;
   let a=to24(tm[1],tm[2],null,apS),b=to24(tm[4],tm[5],a,apE);
   prev={name,teacher,room:"",days:[...d],start:hhmm(a),end:hhmm(b)};out.push(prev);pl=l;
