@@ -16,34 +16,34 @@
 #tour .tbtns .primary{background:#7c5cff;color:#fff}
 #tour .tbtns .tskip{background:none;color:#888;padding-left:0}
 
-.scanbtn{width:100%;margin:0 0 14px;padding:14px;border-radius:16px;border:2px dashed #7c5cff;background:rgba(124,92,255,.08);color:#7c5cff;font-weight:700;font-size:15px}
+
 .modal{max-height:90vh;overflow:auto}
-.scanrow{margin-bottom:10px}
+
 .wide{width:100%;margin-top:8px}
 .snd{align-items:center;gap:12px}.snd span{font-size:20px;color:#7c5cff}.snd div{flex:1}.tiny{border:0;border-radius:10px;padding:8px 14px;background:rgba(124,92,255,.15);color:#7c5cff;font-weight:700}
 
 input[hidden]{display:none!important}
 button.wide:not(.primary):not(.delete){background:rgba(124,92,255,.1);color:#7c5cff;border:0;border-radius:14px;padding:13px;font-weight:700}
-.scanhero{text-align:center;padding:4px 6px 14px}
-.scanicon{width:64px;height:64px;margin:0 auto 10px;border-radius:20px;display:grid;place-items:center;font-size:30px;color:#fff;background:linear-gradient(135deg,#7c5cff,#c05cff);box-shadow:0 10px 24px rgba(124,92,255,.4)}
-.scanhero h3{margin:0 0 6px;font-size:20px}
-.scanhero p{margin:0;font-size:14px;line-height:1.45;opacity:.7}
-.scanopts{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.scancard{border:0;border-radius:20px;padding:18px 10px;display:flex;flex-direction:column;align-items:center;gap:4px;color:#fff;font-family:inherit;text-align:center;box-shadow:0 8px 20px rgba(0,0,0,.18)}
-.scancard.cam{background:linear-gradient(145deg,#7c5cff,#5a3df0)}
-.scancard.gal{background:linear-gradient(145deg,#ff7a8a,#ff9f5a)}
-.scancard .si{font-size:32px;margin-bottom:2px}
-.scancard b{font-size:16px}
-.scancard small{font-size:12px;opacity:.85}
-.scantips{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:14px 0 4px}
-.scantips span{font-size:12.5px;padding:7px 11px;border-radius:999px;background:rgba(124,92,255,.1);color:#7c5cff;font-weight:600}
-.scanprog{display:none;margin:14px 0 4px}
-.scanprog.on{display:block}
-.scanprog .bar{height:10px;border-radius:99px;background:rgba(124,92,255,.15);overflow:hidden}
-.scanprog .bar i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,#7c5cff,#ff7a8a);transition:width .3s}
-.scanprog p{text-align:center;font-size:13px;margin:8px 0 0;opacity:.75}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 .linkbtn{display:block;width:100%;margin-top:10px;border:0;background:none;color:#7c5cff;font-weight:700;font-size:14px;padding:10px}
-.scanrow{border-left:5px solid #7c5cff}
+
 
 /* ----- header banner ----- */
 .top{display:block;margin:14px 14px 4px;padding:18px 18px 16px;border-radius:28px;color:#fff;position:relative;overflow:hidden;background:linear-gradient(135deg,#6a49f5 0%,#9a5cff 55%,#ff7aa8 120%);box-shadow:0 14px 34px rgba(106,73,245,.35)}
@@ -89,7 +89,7 @@ html[data-theme=dark] .nav .active{color:#a58bff}
 /* ----- squishy press feedback ----- */
 button,[onclick]:not(.backdrop){-webkit-tap-highlight-color:transparent;user-select:none;touch-action:manipulation;transition:transform .22s cubic-bezier(.34,1.56,.64,1),filter .15s ease,box-shadow .2s ease}
 button:active,[onclick]:not(.backdrop):active{transform:scale(.93);filter:brightness(.94)}
-.card[onclick]:active,.setting:active,.scancard:active{transform:scale(.97)}
+
 .nav button:active b{transform:scale(.78)}
 .iconbtn:active{transform:scale(.86) rotate(90deg)}
 
