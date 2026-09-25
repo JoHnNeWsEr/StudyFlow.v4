@@ -22,11 +22,9 @@ let data=JSON.parse(store.get(KEY)||"null")||{
   notifications:true,
   notes:[],
   goals:[],
-  grades:[],
-  academicDates:[],
   semester:{name:"1st Semester",schoolYear:"2026–2027"}
 };
-data.notes=data.notes||[]; data.goals=data.goals||[]; data.grades=data.grades||[]; data.academicDates=data.academicDates||[]; data.semester=data.semester||{name:"1st Semester",schoolYear:"2026–2027"};
+data.notes=data.notes||[]; data.goals=data.goals||[]; data.semester=data.semester||{name:"1st Semester",schoolYear:"2026–2027"};
 let view="home";
 
 function save(){store.set(KEY,JSON.stringify(data));try{autoBackup()}catch(e){}try{syncNotifications()}catch(e){}}
@@ -85,7 +83,7 @@ function home(){
   <div class="card studygoalpanel">
    <div class="studygoalhead"><div><strong>Study & Goals</strong><span>Keep your progress moving</span></div><button class="primary" onclick="openFocus()">⏱ Focus</button></div>
    <div class="progressbar"><span style="width:${studyProgress}%"></span></div>
-   ${activeGoals.map(g=>`<div class="goalmini"><div class="grow"><strong>🎯 ${esc(g.title)}</strong><span>${esc(g.target||"Keep going")}</span></div><button class="complete" onclick="toggleGoal('${g.id}')">Done</button></div>`).join("")}
+   ${activeGoals.map(g=>{let running=focusEndAt&&focusTarget?.type==='goal'&&focusTarget.id===g.id;return `<div class="goalmini"><div class="grow"><strong>🎯 ${esc(g.title)}</strong><span>${esc(g.target||"Keep going")}</span></div><button class="inlinefocus ${running?'running':''}" onclick="openFocus('goal','${g.id}')">${running?'⏱ '+formatFocus(focusLeft):'⏱ Focus'}</button><button class="complete" onclick="toggleGoal('${g.id}')">Done</button></div>`}).join("")}
    ${doneGoals.map(g=>`<div class="goalmini done"><div class="grow"><strong>✓ ${esc(g.title)}</strong><span>Completed${g.target?" · "+esc(g.target):""}</span></div><button onclick="toggleGoal('${g.id}')">Undo</button></div>`).join("")}
    ${!activeGoals.length&&!doneGoals.length?`<div class="empty small"><strong>No study goals yet</strong><span>Add a goal to start tracking your progress.</span></div>`:""}
   </div>
@@ -94,7 +92,7 @@ function home(){
  </section>`;
 }
 function classCard(x){return `<div class="card classcard"><div class="time">${fmtTime(x.start)}<small>${fmtTime(x.end)}</small></div><div class="line"></div><div class="grow"><strong>${esc(subjectName(x.subjectId))}</strong><span>${esc(x.teacher||"")} ${x.room?"· "+esc(x.room):""}</span></div><button class="dots" onclick="editClass('${x.id}')">⋯</button></div>`}
-function eventCard(e){const d=e.status==="Completed",p=e.type==="Assignment"?e.priority:"";return `<div class="card eventcard ${d?"done":""}"><button class="chk ${d?"on":""}" onclick="toggleDone('${e.id}',this)" aria-label="Mark complete"><span class="burst"></span><svg viewBox="0 0 24 24"><path d="M5 12l4.5 4.5L19 7.5"/></svg></button><div class="typeicon t-${e.type.toLowerCase()}">${icon(e.type)}</div><div class="grow"><strong>${esc(e.title)}</strong><span>${esc(e.type)} · ${esc(subjectName(e.subjectId))}${p?" · "+esc(p)+" priority":""}</span><small>${d?"✓ Completed":fmtDate(e.date)+(e.time?" · "+fmtTime(e.time):"")}</small></div><button class="dots" onclick="editEvent('${e.id}')">⋯</button></div>`}
+function eventCard(e){const d=e.status==="Completed",p=e.type==="Assignment"?e.priority:"",running=focusEndAt&&focusTarget?.type==='event'&&focusTarget.id===e.id;return `<div class="card eventcard ${d?"done":""}"><button class="chk ${d?"on":""}" onclick="toggleDone('${e.id}',this)" aria-label="Mark complete"><span class="burst"></span><svg viewBox="0 0 24 24"><path d="M5 12l4.5 4.5L19 7.5"/></svg></button><div class="typeicon t-${e.type.toLowerCase()}">${icon(e.type)}</div><div class="grow"><strong>${esc(e.title)}</strong><span>${esc(e.type)} · ${esc(subjectName(e.subjectId))}${p?" · "+esc(p)+" priority":""}</span><small>${d?"✓ Completed":fmtDate(e.date)+(e.time?" · "+fmtTime(e.time):"")}</small></div>${!d?`<button class="inlinefocus ${running?'running':''}" onclick="openFocus('event','${e.id}')">${running?'⏱ '+formatFocus(focusLeft):'⏱'}</button>`:""}<button class="dots" onclick="editEvent('${e.id}')">⋯</button></div>`}
 
 function schedule(){
  let days=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
@@ -127,7 +125,7 @@ function settings(){
  <div class="settinggroup"><h3>Profile</h3><button class="setting" onclick="profile()"><span>${data.profile.photo?`<img class="pthumb" src="${data.profile.photo}" alt="">`:"👤"}</span><div><strong>${esc(data.profile.name||"Your profile")}</strong><small>${esc(data.profile.school||"Add your school information")}</small></div><b>›</b></button></div>
  <div class="settinggroup"><h3>Appearance</h3><button class="setting" onclick="toggleTheme()"><span>◐</span><div><strong>Theme</strong><small>${data.theme==="light"?"Light":"Dark"}</small></div><b>›</b></button></div>
  <div class="settinggroup"><h3>Reminders</h3><button class="setting" onclick="toggleNotifications()"><span>🔔</span><div><strong>Notifications</strong><small>${data.notifications?"Enabled":"Disabled"}</small></div><b>${data.notifications?"ON":"OFF"}</b></button><label class="setting"><span>⏰</span><div><strong>Class reminder</strong><small>Before each class starts</small></div><select onchange="setClassRemind(this.value)">${[[0,"Off"],[5,"5 min"],[10,"10 min"],[15,"15 min"],[30,"30 min"]].map(o=>`<option value="${o[0]}" ${(data.classRemind??10)==o[0]?"selected":""}>${o[1]}</option>`).join("")}</select></label><button class="setting" onclick="openSound()"><span>🔊</span><div><strong>Notification sound</strong><small>${data.soundOn===false?"Off":data.sound&&data.sound!=="default"?prettyS(data.sound)+" · "+(data.soundDur||15)+" sec":"Phone default"}</small></div><b>›</b></button><button class="setting" onclick="testNotify()"><span>🧪</span><div><strong>Send test notification</strong><small>Arrives in 5 seconds</small></div><b>TEST</b></button></div>
- <div class="settinggroup"><h3>Study tools</h3><button class="setting" onclick="openNotes()"><span>🗒️</span><div><strong>Notes</strong><small>${data.notes.length} saved note${data.notes.length===1?"":"s"}</small></div><b>›</b></button><button class="setting" onclick="openGrades()"><span>🎓</span><div><strong>Grades</strong><small>${data.grades.length} grade${data.grades.length===1?"":"s"} recorded</small></div><b>›</b></button><button class="setting" onclick="openGoals()"><span>🎯</span><div><strong>Study goals & focus</strong><small>${data.goals.filter(g=>!g.done).length} active goal${data.goals.filter(g=>!g.done).length===1?"":"s"} · Pomodoro</small></div><b>›</b></button><button class="setting" onclick="openAcademicCalendar()"><span>📅</span><div><strong>Academic calendar</strong><small>${data.academicDates.length} important date${data.academicDates.length===1?"":"s"}</small></div><b>›</b></button><button class="setting" onclick="openSemester()"><span>🗃️</span><div><strong>Semester</strong><small>${esc(data.semester.name)} · ${esc(data.semester.schoolYear)}</small></div><b>›</b></button></div>
+ <div class="settinggroup"><h3>Study tools</h3><button class="setting" onclick="openNotes()"><span>🗒️</span><div><strong>Notes</strong><small>${data.notes.length} saved note${data.notes.length===1?"":"s"}</small></div><b>›</b></button><button class="setting" onclick="openGoals()"><span>🎯</span><div><strong>Study goals & focus</strong><small>${data.goals.filter(g=>!g.done).length} active goal${data.goals.filter(g=>!g.done).length===1?"":"s"} · Pomodoro</small></div><b>›</b></button><button class="setting" onclick="openSemester()"><span>🗃️</span><div><strong>Semester</strong><small>${esc(data.semester.name)} · ${esc(data.semester.schoolYear)}</small></div><b>›</b></button></div>
  <div class="settinggroup"><h3>Help</h3><button class="setting" onclick="startTour()"><span>🎓</span><div><strong>Replay tutorial</strong><small>A quick guided tour of the app</small></div><b>›</b></button></div><div class="settinggroup"><h3>Backup</h3><button class="setting" onclick="openBackup()"><span>💾</span><div><strong>Backup &amp; restore</strong><small>Save or move your data</small></div><b>›</b></button></div><div class="settinggroup"><h3>Data</h3><button class="setting danger" onclick="resetData()"><span>↺</span><div><strong>Reset all data</strong><small>Remove subjects, classes and events</small></div><b>›</b></button></div>
  <p class="version">StudyFlow • 1.7.0</p></section>`;
 }
@@ -189,233 +187,44 @@ window.editNote=id=>{let n=data.notes.find(x=>x.id===id);modal("Edit note",`<for
 window.updateNote=(e,id)=>{e.preventDefault();let n=data.notes.find(x=>x.id===id);Object.assign(n,{title:ntitle.value,subjectId:nsub.value,text:ntext.value,updated:Date.now()});save();closeModal();shell()};
 window.deleteNote=id=>{data.notes=data.notes.filter(n=>n.id!==id);save();closeModal();shell()};
 window.openNotes=()=>modal("Notes",`<div class="sectionhead"><h3>Your notes</h3><button onclick="addNote()">＋ Note</button></div>${data.notes.length?data.notes.slice().sort((a,b)=>(b.updated||0)-(a.updated||0)).map(n=>`<div class="card note" onclick="editNote('${n.id}')"><div class="grow"><strong>${esc(n.title)}</strong><span>${esc(subjectName(n.subjectId))}</span><small>${esc(n.text).slice(0,130)}${n.text.length>130?"…":""}</small></div><b>›</b></div>`).join(""):`<div class="empty small"><strong>No notes yet</strong><span>Add notes by subject so everything stays together.</span><button onclick="addNote()">Add note</button></div>`}`);
-window.openGrades=()=>modal("Grades",`<p class="muted">Record scores or percentages for each subject. StudyFlow keeps the entries locally on your phone.</p><div class="sectionhead"><h3>Recorded grades</h3><button onclick="addGrade()">＋ Grade</button></div>${data.grades.length?data.grades.map(g=>`<div class="card grade"><div class="grow"><strong>${esc(subjectName(g.subjectId))}</strong><span>${esc(g.label||"Assessment")} · ${esc(g.score)}%</span></div><button class="dots" onclick="editGrade('${g.id}')">⋯</button></div>`).join(""):`<div class="empty small"><strong>No grades yet</strong><span>Add quiz, exam or project scores as you receive them.</span></div>`}`);
-window.addGrade=()=>modal("Add grade",`<form onsubmit="saveGrade(event)"><label>Subject<select id="gsub" required>${subjectOptions()}</select></label><label>Assessment<input id="glabel" required placeholder="Midterm exam"></label><label>Score (%)<input id="gscore" type="number" min="0" max="100" step="0.01" required placeholder="85"></label><button class="primary wide">Save grade</button></form>`);
-window.saveGrade=e=>{e.preventDefault();data.grades.push({id:uid(),subjectId:gsub.value,label:glabel.value,score:+gscore.value});save();closeModal();openGrades()};
-window.editGrade=id=>{let g=data.grades.find(x=>x.id===id);modal("Edit grade",`<form onsubmit="updateGrade(event,'${id}')"><label>Subject<select id="gsub">${subjectOptions(g.subjectId)}</select></label><label>Assessment<input id="glabel" value="${esc(g.label)}"></label><label>Score (%)<input id="gscore" type="number" min="0" max="100" step="0.01" value="${g.score}"></label><button class="primary wide">Save changes</button><button type="button" class="delete wide" onclick="deleteGrade('${id}')">Delete</button></form>`)};
-window.updateGrade=(e,id)=>{e.preventDefault();let g=data.grades.find(x=>x.id===id);Object.assign(g,{subjectId:gsub.value,label:glabel.value,score:+gscore.value});save();closeModal();openGrades()};
-window.deleteGrade=id=>{data.grades=data.grades.filter(g=>g.id!==id);save();closeModal();openGrades()};
 window.openGoals=()=>modal("Study goals & focus",`<div class="sectionhead"><h3>Goals</h3><button onclick="addGoal()">＋ Goal</button></div>${data.goals.length?data.goals.map(g=>`<div class="card goalmini ${g.done?"done":""}"><button class="chk ${g.done?"on":""}" onclick="toggleGoal('${g.id}')" aria-label="Mark goal ${g.done?"not done":"done"}"><svg viewBox="0 0 24 24"><path d="M5 12l4.5 4.5L19 7.5"/></svg></button><div class="grow"><strong>${esc(g.title)}</strong><span>${esc(g.target||"")}</span></div><button class="dots" onclick="editGoal('${g.id}')">⋯</button></div>`).join(""):`<div class="empty small"><strong>No study goals yet</strong><span>Set a small target and build momentum.</span></div>`}<button class="primary wide" onclick="openFocus()">⏱ Start focus session</button>`);
 window.addGoal=()=>modal("New study goal",`<form onsubmit="saveGoal(event)"><label>Goal<input id="gotitle" required placeholder="Finish Chapter 3"></label><label>Target / detail<input id="gotarget" placeholder="By Friday"></label><button class="primary wide">Save goal</button></form>`);
 window.saveGoal=e=>{e.preventDefault();data.goals.push({id:uid(),title:gotitle.value,target:gotarget.value,done:false});save();closeModal();openGoals()};
 window.toggleGoal=id=>{let g=data.goals.find(x=>x.id===id);if(g)g.done=!g.done;save();closeModal();openGoals()};
 window.editGoal=id=>{let g=data.goals.find(x=>x.id===id);modal("Edit goal",`<form onsubmit="updateGoal(event,'${id}')"><label>Goal<input id="gotitle" required value="${esc(g.title)}"></label><label>Target / detail<input id="gotarget" value="${esc(g.target||"")}"></label><button class="primary wide">Save changes</button><button type="button" class="delete wide" onclick="deleteGoal('${id}')">Delete</button></form>`)};
 window.updateGoal=(e,id)=>{e.preventDefault();let g=data.goals.find(x=>x.id===id);Object.assign(g,{title:gotitle.value,target:gotarget.value});save();closeModal();openGoals()};window.deleteGoal=id=>{data.goals=data.goals.filter(g=>g.id!==id);save();closeModal();openGoals()};
-let focusTimer=null,focusLeft=25*60,focusTotal=25*60,focusEndAt=null;
-const FOCUS_KEY="studyflow-focus-v1",FOCUS_NOTIFY_ID=8801;
-function formatFocus(sec){sec=Math.max(0,Math.floor(sec));let h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),s=sec%60;return h>0?String(h).padStart(2,"0")+":"+String(m).padStart(2,"0")+":"+String(s).padStart(2,"0"):String(m).padStart(2,"0")+":"+String(s).padStart(2,"0")}
-function readFocus(){try{return JSON.parse(localStorage.getItem(FOCUS_KEY)||"null")}catch(e){return null}}
-function writeFocus(){try{localStorage.setItem(FOCUS_KEY,JSON.stringify({running:!!focusEndAt,endAt:focusEndAt,total:focusTotal,left:focusLeft}))}catch(e){}}
-async function cancelFocusNotification(){try{if(Capacitor.isNativePlatform())await LocalNotifications.cancel({notifications:[{id:FOCUS_NOTIFY_ID}]})}catch(e){}}
-async function scheduleFocusNotification(){if(!focusEndAt)return;try{if(!Capacitor.isNativePlatform())return;await LocalNotifications.cancel({notifications:[{id:FOCUS_NOTIFY_ID}]});if(data.notifications===false)return;await LocalNotifications.schedule({notifications:[{id:FOCUS_NOTIFY_ID,channelId:chId(),title:"StudyFlow · Focus complete",body:"Your focus session is finished. Great work! 🎉",schedule:{at:new Date(focusEndAt),allowWhileIdle:true}}]})}catch(e){console.warn("Focus notification failed",e)}}
-function renderFocus(){let el=document.querySelector("#focusclock");if(el)el.textContent=formatFocus(focusLeft);let btn=document.querySelector("#focusstart");if(btn)btn.textContent=focusEndAt?"Running…":"Start"}
-async function finishFocus(){clearInterval(focusTimer);focusTimer=null;focusLeft=0;focusEndAt=null;writeFocus();await cancelFocusNotification();renderFocus();try{navigator.vibrate&&navigator.vibrate([120,80,120])}catch(e){}alert("Focus session complete! Take a 5-minute break 🎉")}
-function reconcileFocus(){let st=readFocus();if(!st)return;if(st.running&&st.endAt){focusTotal=Number(st.total)||focusTotal;focusEndAt=Number(st.endAt);focusLeft=Math.max(0,Math.ceil((focusEndAt-Date.now())/1000));if(focusLeft<=0){focusEndAt=null;focusLeft=0;writeFocus();cancelFocusNotification()}else{clearInterval(focusTimer);focusTimer=setInterval(()=>{focusLeft=Math.max(0,Math.ceil((focusEndAt-Date.now())/1000));renderFocus();if(focusLeft<=0)finishFocus()},250)}}else{focusTotal=Number(st.total)||focusTotal;focusLeft=Number(st.left)||focusTotal;focusEndAt=null}}
-window.openFocus=()=>{reconcileFocus();let amount=focusEndAt?Math.max(1,Math.ceil(focusLeft/(document.querySelector("#focusunit")?.value==="hours"?3600:60))):25;modal("Focus timer",`<div class="focus"><div id="focusclock">${formatFocus(focusLeft)}</div><p class="muted">Your timer keeps running when you leave StudyFlow. You’ll get a notification when it finishes.</p><div class="row"><label>Duration<input id="focusamount" type="number" min="1" step="1" value="${amount}"></label><label>Unit<select id="focusunit"><option value="seconds">Seconds</option><option value="minutes" selected>Minutes</option><option value="hours">Hours</option></select></label></div><button class="wide" onclick="setFocusDuration()">Set duration</button><button id="focusstart" class="primary wide" onclick="startFocus()">${focusEndAt?"Running…":"Start"}</button><button class="wide" onclick="resetFocus()">Reset</button></div>`);renderFocus()};
-window.setFocusDuration=()=>{if(focusEndAt)return;let n=Math.max(1,Number(document.querySelector("#focusamount")?.value||25)),u=document.querySelector("#focusunit")?.value||"minutes";let mult=u==="hours"?3600:u==="seconds"?1:60;focusTotal=Math.round(n*mult);focusLeft=focusTotal;writeFocus();renderFocus()};
-window.startFocus=async()=>{if(focusEndAt)return;if(!focusLeft)setFocusDuration();focusEndAt=Date.now()+focusLeft*1000;writeFocus();await scheduleFocusNotification();reconcileFocus();renderFocus()};
-window.resetFocus=async()=>{clearInterval(focusTimer);focusTimer=null;focusEndAt=null;focusLeft=focusTotal;writeFocus();await cancelFocusNotification();renderFocus()};
-window.addEventListener("visibilitychange",()=>{if(!document.hidden)reconcileFocus()});window.addEventListener("focus",()=>reconcileFocus());reconcileFocus();
-window.openAcademicCalendar=()=>modal("Academic calendar",`<div class="sectionhead"><h3>Important dates</h3><button onclick="addAcademicDate()">＋ Date</button></div>${data.academicDates.length?data.academicDates.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(a=>`<div class="card note"><div class="grow"><strong>${esc(a.title)}</strong><span>${fmtDate(a.date)}${a.kind?" · "+esc(a.kind):""}</span></div><button class="dots" onclick="deleteAcademicDate('${a.id}')">×</button></div>`).join(""):`<div class="empty small"><strong>No academic dates</strong><span>Add holidays, exam periods, school events or deadlines.</span></div>`}`);
-window.addAcademicDate=()=>modal("Add academic date",`<form onsubmit="saveAcademicDate(event)"><label>Title<input id="adtitle" required placeholder="Midterm week"></label><div class="row"><label>Date<input id="addate" type="date" required></label><label>Type<input id="adkind" placeholder="Exam / Holiday"></label></div><button class="primary wide">Save date</button></form>`);
-window.saveAcademicDate=e=>{e.preventDefault();data.academicDates.push({id:uid(),title:adtitle.value,date:addate.value,kind:adkind.value});save();closeModal();openAcademicCalendar()};window.deleteAcademicDate=id=>{data.academicDates=data.academicDates.filter(a=>a.id!==id);save();closeModal();openAcademicCalendar()};
-window.openSemester=()=>modal("Semester management",`<form onsubmit="saveSemester(event)"><label>Semester name<input id="semname" value="${esc(data.semester.name)}" placeholder="1st Semester"></label><label>School year<input id="semyear" value="${esc(data.semester.schoolYear)}" placeholder="2026–2027"></label><button class="primary wide">Save semester</button></form><p class="muted">Your subjects, classes, events, notes and grades stay on this device. Use Backup & restore before starting a new semester if you want an archive of the old data.</p>`);
-window.saveSemester=e=>{e.preventDefault();data.semester={name:semname.value,schoolYear:semyear.value};save();closeModal();shell()};
-window.profile=()=>modal("Your profile",`<div class="pavatar"><div class="pav">${data.profile.photo?`<img src="${data.profile.photo}" alt="">`:`<span>${initials(data.profile.name)}</span>`}</div><div class="pavbtns"><button type="button" class="primary" onclick="document.querySelector('#pphoto').click()">📷 ${data.profile.photo?"Change":"Add"} photo</button>${data.profile.photo?`<button type="button" class="delete" onclick="removePhoto()">Remove</button>`:""}</div><input id="pphoto" type="file" accept="image/*" hidden onchange="setPhoto(this.files[0])"></div><form onsubmit="saveProfile(event)"><label>Name<input id="pname" value="${esc(data.profile.name)}" placeholder="Your name"></label><label>School<input id="pschool" value="${esc(data.profile.school)}" placeholder="School name"></label><label>Grade / Year<input id="pgrade" value="${esc(data.profile.grade)}" placeholder="Grade 10"></label><button class="primary wide">Save profile</button></form>`);
-window.saveProfile=e=>{e.preventDefault();data.profile={...data.profile,name:pname.value,school:pschool.value,grade:pgrade.value};save();closeModal();shell()};
-window.toggleTheme=()=>{data.theme=data.theme==="light"?"dark":"light";save();shell()};
-window.toggleNotifications=()=>{data.notifications=!data.notifications;save();shell()};
-window.resetData=()=>{if(confirm("Reset all StudyFlow data?")){store.del(KEY);data={profile:{name:"",school:"",grade:""},subjects:[],classes:[],events:[],theme:"light",notifications:true,notes:[],goals:[],grades:[],academicDates:[],semester:{name:"1st Semester",schoolYear:"2026–2027"}};view="home";shell()}};
-
-shell();
-
-if("serviceWorker" in navigator && location.protocol.startsWith("http") && location.hostname!=="localhost"){
-  window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
+async function ensureNotificationPermission(){
+  if(!Capacitor.isNativePlatform()) return false;
+  let p=await LocalNotifications.checkPermissions();
+  if(p.display!=="granted") p=await LocalNotifications.requestPermissions();
+  return p.display==="granted";
 }
-
-window.go=go;window.selectDay=selectDay;window.filterEvents=filterEvents;window.closeModal=closeModal;
-
-// Reminders: native Android notifications via Capacitor; browser fallback while the page is open.
-const native=Capacitor.isNativePlatform();
-let timers=[];
-function numId(str){let h=0;for(const c of str)h=(h*31+c.charCodeAt(0))|0;return Math.abs(h)%2000000000+1;}
-function due(e){return new Date(e.date+"T"+e.time+":00").getTime()-e.reminder*60000;}
-function body(e){return `${e.type} · ${subjectName(e.subjectId)} · ${fmtTime(e.time)}`;}
-const WD=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-async function ensurePerm(){
- if(native){let p=await LocalNotifications.checkPermissions();if(p.display!=="granted")p=await LocalNotifications.requestPermissions();return p.display==="granted";}
- if(!("Notification" in window))return false;
- if(Notification.permission==="default")await Notification.requestPermission();
- return Notification.permission==="granted";
-}
-function classAlarm(c,mins){
- let wd=WD.indexOf(c.day)+1,[h,m]=c.start.split(":").map(Number),t=h*60+m-mins;
- if(t<0){t+=1440;wd=wd===1?7:wd-1;}
- return{weekday:wd,hour:Math.floor(t/60),minute:t%60};
-}
-async function syncNotifications(){
- timers.forEach(clearTimeout);timers=[];
- const on=data.notifications!==false,cm=data.classRemind??10;
- const evs=on?data.events.filter(e=>e.reminder&&e.date&&e.time&&e.status!=="Completed"&&due(e)>Date.now()):[];
- const cls=on&&cm>0?data.classes.filter(c=>c.day&&c.start&&WD.includes(c.day)):[];
- try{
-  if(native){
-   const pending=await LocalNotifications.getPending();
-   if(pending.notifications.length)await LocalNotifications.cancel({notifications:pending.notifications.map(n=>({id:n.id}))});
-   if(!evs.length&&!cls.length)return;
-   if(!await ensurePerm())return;
-   try{await mkChannel()}catch(e){}
-   const list=[...evs.map(e=>({channelId:chId(),id:numId(e.id),title:e.title,body:body(e),schedule:{at:new Date(due(e)),allowWhileIdle:true}})),
-    ...cls.map(c=>({channelId:chId(),id:numId(c.id+"c"),title:subjectName(c.subjectId)+" starts in "+cm+" min",body:(c.room?"Room "+c.room+" · ":"")+fmtTime(c.start),schedule:{on:classAlarm(c,cm),allowWhileIdle:true}}))];
-   await LocalNotifications.schedule({notifications:list});
-  }else if(evs.length&&await ensurePerm()){
-   evs.filter(e=>due(e)-Date.now()<2147000000).forEach(e=>timers.push(setTimeout(()=>new Notification(e.title,{body:body(e),icon:"./icon-192.png"}),due(e)-Date.now())));
-  }
- }catch(err){console.warn("Reminder sync failed",err);}
-}
-window.setClassRemind=v=>{data.classRemind=+v;save();shell()};
 window.testNotify=async()=>{
- try{
-  if(native)try{await mkChannel()}catch(e){}
-  if(!await ensurePerm()){alert("Notifications are blocked. Allow them for StudyFlow in Android Settings > Apps > StudyFlow > Notifications.");return;}
-  if(native)await LocalNotifications.schedule({notifications:[{channelId:chId(),id:1,title:"StudyFlow",body:"Notifications are working! 🎉",schedule:{at:new Date(Date.now()+5000),allowWhileIdle:true}}]});
-  else setTimeout(()=>new Notification("StudyFlow",{body:"Notifications are working! 🎉"}),5000);
- }catch(e){alert("Could not send: "+e.message)}
+  try{
+    if(!Capacitor.isNativePlatform()){alert("Test notifications are available in the Android app.");return;}
+    const granted=await ensureNotificationPermission();
+    if(!granted){alert("Please allow StudyFlow notifications in Android settings, then try again.");return;}
+    const id=FOCUS_NOTIFY_ID+1;
+    await LocalNotifications.cancel({notifications:[{id}]});
+    await LocalNotifications.schedule({notifications:[{id,channelId:chId(),title:"StudyFlow · Test notification",body:"Notifications are working! 🎉",schedule:{at:new Date(Date.now()+5000),allowWhileIdle:true}}]});
+    alert("Test notification scheduled for about 5 seconds from now.");
+  }catch(e){console.warn("Test notification failed",e);alert("Could not schedule the test notification. Please check notification permission in Android settings.");}
 };
-syncNotifications();
-
-document.addEventListener("visibilitychange",()=>{if(!document.hidden)syncNotifications()});
-
-// ---------- First-run guided tour (spotlight) ----------
-const STEPS=[
- {t:"Welcome to StudyFlow 👋",d:"A quick tour (about a minute) shows you where everything is. You can replay it anytime in Settings → Replay tutorial."},
- {v:"home",sel:".top",t:"Your day at a glance",d:"Home shows today's classes and your next events, so you always know what's coming. Tap your photo circle to add a profile picture."},
- {v:"home",sel:".iconbtn",t:"Quick add",d:"Tap ＋ anywhere to quickly add a subject, class or event."},
-  {v:"subjects",sel:".pagehead .primary",t:"Or add a subject by hand",d:"Type the name, teacher and room once, then pick the days and times (like Monday and Friday). It fills your schedule automatically."},
- {v:"schedule",sel:".daystrip",t:"Your weekly schedule",d:"Tap a day to see its classes. Use ＋ Class to add one-off classes or type a brand-new subject."},
- {v:"events",sel:".pagehead .primary",t:"Quizzes, exams & projects",d:"Add events with a date, time and a reminder. Tap the circle on any event to mark it done — filter by type or by Done below."},
- {v:"settings",sel:".settinggroup",t:"Reminders & sound",d:"Turn notifications on, choose how early class reminders arrive, and pick a notification sound with its own play length. Tap Send test to check it works."},
- {v:"settings",sel:"[onclick=\"openBackup()\"]",t:"Keep your data safe",d:"Backup & restore saves a file with everything in StudyFlow — subjects, classes, events and your photo — so you never lose it, even if you reinstall."},
- {t:"You're all set! 🎉",d:"Add your first subject and start organizing your school work."}
-];
-let tourI=0;
-function tourEl(){return document.getElementById("tour")}
-window.startTour=()=>{tourI=0;if(!tourEl()){const t=document.createElement("div");t.id="tour";t.innerHTML='<div class="spot"></div><div class="tip"><h3></h3><p></p><div class="tbtns"><button class="tskip">Skip</button><span class="tcount"></span><button class="tback">Back</button><button class="tnext primary">Next</button></div></div>';document.body.appendChild(t);
- t.querySelector(".tskip").onclick=endTour;t.querySelector(".tback").onclick=()=>{tourI=Math.max(0,tourI-1);showStep()};
- t.querySelector(".tnext").onclick=()=>{tourI>=STEPS.length-1?endTour():(tourI++,showStep())};
- window.addEventListener("resize",showStep)}showStep()};
-function endTour(){tourEl()?.remove();window.removeEventListener("resize",showStep);data.tourDone=true;save();if(view!=="subjects")go("subjects")}
-function showStep(){
- const t=tourEl();if(!t)return;const st=STEPS[tourI];
- if(st.v&&view!==st.v)go(st.v);
- requestAnimationFrame(()=>{
-  const spot=t.querySelector(".spot"),tip=t.querySelector(".tip"),el=st.sel&&document.querySelector(st.sel);
-  t.querySelector("h3").textContent=st.t;t.querySelector("p").textContent=st.d;
-  t.querySelector(".tcount").textContent=(tourI+1)+"/"+STEPS.length;
-  t.querySelector(".tback").style.visibility=tourI?"visible":"hidden";
-  t.querySelector(".tnext").textContent=tourI>=STEPS.length-1?"Done":"Next";
-  tip.style.top=tip.style.bottom="";
-  if(el){
-   el.scrollIntoView({block:"center"});
-   const r=el.getBoundingClientRect(),p=6;
-   Object.assign(spot.style,{display:"block",left:r.left-p+"px",top:r.top-p+"px",width:r.width+2*p+"px",height:r.height+2*p+"px"});
-   if(r.top+r.height/2>innerHeight/2)tip.style.bottom=innerHeight-r.top+18+"px";else tip.style.top=r.bottom+18+"px";
-  }else{spot.style.display="none";tip.style.top=Math.max(40,innerHeight/2-110)+"px";}
- });
-}
-if(!data.tourDone)setTimeout(startTour,1900);
-
-window.openBackup=()=>modal("Backup & restore",`<p class="muted">Tap Copy and paste it somewhere safe (Notes, WhatsApp to yourself). To restore, paste it back below and tap Restore.</p><textarea id="bk" rows="7" style="width:100%">${esc(JSON.stringify(data))}</textarea><button type="button" class="primary wide" onclick="copyBackup()">Copy backup</button><button type="button" class="delete wide" onclick="restoreBackup()">Restore from text above</button>`);
-window.copyBackup=async()=>{const t=document.querySelector("#bk");try{await navigator.clipboard.writeText(t.value);alert("Copied!")}catch(e){t.select();alert("Select all and copy the text manually.")}};
-window.restoreBackup=()=>{try{const d=JSON.parse(document.querySelector("#bk").value);if(!d.subjects||!d.classes||!d.events)throw 0;data=d;save();closeModal();shell();alert("Restored!")}catch(e){alert("That backup text isn't valid.")}};
-
-// ---------- Backup FILE (save / share / restore) + automatic in-app backup ----------
-const bkName=()=>"StudyFlow-backup-"+new Date().toISOString().slice(0,10)+".json";
-window.saveBackupFile=async()=>{
- const json=JSON.stringify(data,null,1);
- try{
-  if(native){
-   await Filesystem.writeFile({path:bkName(),data:json,directory:Directory.Cache,encoding:Encoding.UTF8});
-   const {uri}=await Filesystem.getUri({path:bkName(),directory:Directory.Cache});
-   await Share.share({title:"StudyFlow backup",files:[uri],dialogTitle:"Save your backup file (Files, Drive, WhatsApp...)"});
-  }else{
-   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([json],{type:"application/json"}));a.download=bkName();document.body.appendChild(a);a.click();a.remove();
-  }
- }catch(e){if(!/cancel/i.test(String(e.message||e)))alert("Couldn't save the file: "+(e.message||e))}
-};
-function applyBackup(d){if(!d||!d.subjects||!d.classes||!d.events)throw new Error("Not a StudyFlow backup");data=d;save();closeModal();go("schedule");alert("Backup restored!")}
-window.restoreFile=async f=>{if(!f)return;try{applyBackup(JSON.parse(await f.text()))}catch(e){alert("That file isn't a valid StudyFlow backup.")}};
-let abT;
-function autoBackup(){if(!native)return;clearTimeout(abT);abT=setTimeout(async()=>{try{await Filesystem.writeFile({path:"auto-backup.json",data:JSON.stringify(data),directory:Directory.Data,encoding:Encoding.UTF8});store.set("abTime",new Date().toLocaleString())}catch(e){}},1500)}
-window.restoreAuto=async()=>{try{const r=await Filesystem.readFile({path:"auto-backup.json",directory:Directory.Data,encoding:Encoding.UTF8});applyBackup(JSON.parse(r.data))}catch(e){alert("No automatic backup found yet.")}};
-window.openBackup=()=>modal("Backup & restore",`<p class="muted">Keep a backup file so you never lose your schedule, even if you reinstall the app.</p>
-<button type="button" class="primary wide" onclick="saveToFolder()">📁 Save to my phone</button>
-<small class="muted">Creates the folder <b>StudyFlow Backup File</b> inside your Documents folder.</small>
-<button type="button" class="wide" onclick="saveBackupFile()">📤 Share backup file (Drive, WhatsApp...)</button>
-<button type="button" class="wide" onclick="document.querySelector('#bkfile').click()">📂 Restore from a backup file</button>
-<input id="bkfile" type="file" accept=".json,.txt,application/json,text/plain" hidden onchange="restoreFile(this.files[0])">
-${native?`<button type="button" class="wide" onclick="restoreAuto()">🕘 Restore automatic backup</button><small class="muted">The app keeps its own copy after every change. Last: ${esc(store.get("abTime")||"none yet")}</small>`:""}
-<details style="margin-top:12px"><summary class="muted">Advanced: backup as text</summary><textarea id="bk" rows="6" style="width:100%">${esc(JSON.stringify(data))}</textarea><button type="button" class="wide" onclick="copyBackup()">Copy text</button><button type="button" class="delete wide" onclick="restoreBackup()">Restore from text above</button></details>`);
-
-// ---------- Custom notification sound + duration ----------
-let SND=null;
-async function loadSounds(){if(SND)return SND;try{SND=await (await fetch("sounds.json")).json()}catch(e){SND=[]}return SND}
-function prettyS(n){return String(n).replace(/_/g," ").replace(/^./,c=>c.toUpperCase())}
-function soundSel(){return data.sound&&data.sound!=="default"?data.sound:null}
-function soundOn(){return data.soundOn!==false}
-function chId(){if(!soundOn())return "rem_silent";const s=soundSel();return s?"rem_"+s+"_"+(data.soundDur||15):"reminders"}
-async function mkChannel(){const s=soundSel(),d=data.soundDur||15;
- if(!soundOn()){try{await LocalNotifications.createChannel({id:"rem_silent",name:"Reminders (silent)",description:"Class and event reminders without sound",importance:2,visibility:1,vibration:true})}catch(e){}return}
- try{await LocalNotifications.createChannel({id:chId(),name:s?"Reminders - "+prettyS(s)+" ("+d+"s)":"Reminders",description:"Class and event reminders",importance:5,visibility:1,vibration:true,...(s?{sound:"s_"+s+"_"+d+".ogg"}:{})})}catch(e){}}
-let aud;
-window.playSound=n=>{try{if(aud){aud.pause();aud=null}aud=new Audio("sounds/"+n+".ogg");aud.play()}catch(e){}};
-window.pickSound=n=>{data.sound=n;save();closeModal();shell();openSound()};
-window.toggleSound=()=>{data.soundOn=!soundOn();save();closeModal();shell();openSound()};
-window.setDur=d=>{data.soundDur=d;save();shell()};
-window.openSound=async()=>{
- const list=native?await loadSounds():[],cur=data.sound||"default",dur=data.soundDur||15;
- modal("Notification sound",`<button type="button" class="setting" onclick="toggleSound()"><span>${soundOn()?"🔔":"🔕"}</span><div><strong>Sound</strong><small>${soundOn()?"Reminders play a sound":"Silent reminders"}</small></div><b>${soundOn()?"ON":"OFF"}</b></button>
- <div ${soundOn()?"":'style="opacity:.4;pointer-events:none"'}><p class="muted">Pick a sound and how long it plays.</p>
- <div id="sndlist">${["default",...list].map(n=>`<div class="setting snd"><span onclick="pickSound('${n}')">${cur===n?"●":"○"}</span><div onclick="pickSound('${n}')"><strong>${n==="default"?"Phone default":prettyS(n)}</strong></div>${n==="default"?"":`<button type="button" class="tiny" onclick="playSound('${n}')">▶</button>`}</div>`).join("")}</div>
- <p class="muted">Play for</p><div class="chips">${[10,15,20].map(d=>`<label class="chip"><input type="radio" name="sd" ${d===dur?"checked":""} onchange="setDur(${d})"><span>${d} sec</span></label>`).join("")}</div></div>
- ${native?`<button type="button" class="primary wide" onclick="testNotify()">Send test notification</button><p class="muted">Your phone must not be on silent or Do Not Disturb to hear it.</p>`:`<p class="muted">Custom sounds work in the installed Android app.</p>`}`)};
-
-// ---------- Animated intro / splash ----------
-(function(){
- const sp=document.createElement("div");sp.id="splash";
- sp.innerHTML=`<div class="sp-blocks">${[0,1,2,3,4,5,6].map(i=>`<i style="--i:${i}"></i>`).join("")}</div>
- <div class="sp-center"><svg class="sp-ring" viewBox="0 0 120 120"><circle cx="60" cy="60" r="54"/></svg><div class="sp-logo"><div class="sp-o"></div></div></div>
- <div class="sp-name">StudyFlow</div><div class="sp-tag">Plan · Focus · Achieve</div>`;
- document.body.appendChild(sp);
- const out=()=>{sp.classList.add("out");document.querySelector("#app").classList.add("in");setTimeout(()=>sp.remove(),450)};
- setTimeout(out,matchMedia("(prefers-reduced-motion: reduce)").matches?450:1350);
-})();
-
-// tiny haptic tick on every button press (Android)
-document.addEventListener("pointerdown",e=>{if(e.target.closest&&e.target.closest("button")&&navigator.vibrate)try{navigator.vibrate(8)}catch(x){}},{passive:true});
-
-const bkStamp=()=>new Date().toISOString().slice(0,16).replace("T","_").replace(":","");
-window.saveToFolder=async()=>{
- if(!native)return saveBackupFile();
- const name="StudyFlow-backup-"+bkStamp()+".json";
- try{
-  try{const p=await Filesystem.checkPermissions();if(p.publicStorage!=="granted")await Filesystem.requestPermissions()}catch(e){}
-  await Filesystem.writeFile({path:"StudyFlow Backup File/"+name,data:JSON.stringify(data,null,1),directory:Directory.Documents,encoding:Encoding.UTF8,recursive:true});
-  alert("Backup saved!\n\nOpen your file manager, then Documents > StudyFlow Backup File > "+name);
- }catch(e){alert("Couldn't save to the folder ("+(e.message||e)+"). Try Share backup file instead.")}
-};
-
-// ---------- realistic "mark as completed" ----------
-function toast(msg,undo){document.querySelector("#toast")?.remove();const t=document.createElement("div");t.id="toast";t.innerHTML=`<span>${msg}</span>${undo?'<button type="button">Undo</button>':""}`;document.body.appendChild(t);if(undo)t.querySelector("button").onclick=()=>{t.remove();undo()};setTimeout(()=>t.classList.add("in"),20);setTimeout(()=>{t.classList.remove("in");setTimeout(()=>t.remove(),300)},4200)}
-function confetti(btn){const b=btn.querySelector(".burst");b.innerHTML="";for(let i=0;i<12;i++){const a=i/12*6.283+Math.random()*.4,r=26+Math.random()*16,p=document.createElement("i");p.style.cssText=`--dx:${Math.cos(a)*r}px;--dy:${Math.sin(a)*r}px;--h:${Math.floor(Math.random()*360)}`;b.appendChild(p)}setTimeout(()=>b.innerHTML="",800)}
-window.toggleDone=(id,btn)=>{
- const e=data.events.find(x=>x.id===id),was=e.status==="Completed";e.status=was?"Upcoming":"Completed";e.doneAt=was?null:Date.now();save();
- const card=btn.closest(".eventcard");
- if(!was){btn.classList.add("on","anim");card.classList.add("done","popping");confetti(btn);try{navigator.vibrate&&navigator.vibrate([14,50,22])}catch(x){}
-  toast("Nice! Marked as done ✓",()=>{e.status="Upcoming";save();shell()})}
- else{btn.classList.remove("on","anim");card.classList.remove("done","popping")}
- setTimeout(shell,was?260:950);
-};
+let focusTimer=null,focusLeft=25*60,focusTotal=25*60,focusEndAt=null,focusTarget=null;
+const FOCUS_KEY="studyflow-focus-v2",FOCUS_NOTIFY_ID=8801;
+function formatFocus(sec){sec=Math.max(0,Math.floor(sec));let h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),s=sec%60;return h?`${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`:`${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`}
+function readFocus(){try{return JSON.parse(localStorage.getItem(FOCUS_KEY)||"null")}catch(e){return null}}
+function writeFocus(){try{localStorage.setItem(FOCUS_KEY,JSON.stringify({running:!!focusEndAt,endAt:focusEndAt,total:focusTotal,left:focusLeft,target:focusTarget}))}catch(e){}}
+async function cancelFocusNotification(){try{if(Capacitor.isNativePlatform())await LocalNotifications.cancel({notifications:[{id:FOCUS_NOTIFY_ID}]})}catch(e){}}
+async function scheduleFocusNotification(){if(!focusEndAt)return;try{if(!Capacitor.isNativePlatform())return;let p=await LocalNotifications.checkPermissions();if(p.display!=="granted")p=await LocalNotifications.requestPermissions();if(p.display!=="granted")return;await LocalNotifications.cancel({notifications:[{id:FOCUS_NOTIFY_ID}]});if(data.notifications===false)return;let label=focusTarget?.type==="goal"?data.goals.find(g=>g.id===focusTarget.id)?.title:focusTarget?.type==="event"?data.events.find(e=>e.id===focusTarget.id)?.title:null;await LocalNotifications.schedule({notifications:[{id:FOCUS_NOTIFY_ID,channelId:chId(),title:"StudyFlow · Focus complete",body:label?`Focus session for “${label}” is finished. Great work! 🎉`:"Your focus session is finished. Great work! 🎉",schedule:{at:new Date(focusEndAt),allowWhileIdle:true}}]})}catch(e){console.warn("Focus notification failed",e)}}
+function renderFocus(){let el=document.querySelector("#focusclock");if(el)el.textContent=formatFocus(focusLeft);let btn=document.querySelector("#focusstart");if(btn)btn.textContent=focusEndAt?"Running…":"Start";document.querySelectorAll(".inlinefocus").forEach(b=>{let row=b.closest(".goalmini")||b.closest(".eventcard");let type=b.closest(".goalmini")?"goal":"event";let id=row?.querySelector(".complete")?.getAttribute("onclick")?.match(/toggleGoal\('([^']+)/)?.[1]||row?.querySelector(".dots")?.getAttribute("onclick")?.match(/editEvent\('([^']+)/)?.[1];let active=focusEndAt&&focusTarget?.type===type&&focusTarget.id===id;b.textContent=active?`⏱ ${formatFocus(focusLeft)}`:(type==="goal"?"⏱ Focus":"⏱");b.classList.toggle("running",!!active)})}
+async function finishFocus(){clearInterval(focusTimer);focusTimer=null;focusLeft=0;focusEndAt=null;focusTarget=null;writeFocus();await cancelFocusNotification();renderFocus();try{navigator.vibrate&&navigator.vibrate([120,80,120])}catch(e){}alert("Focus session complete! Take a 5-minute break 🎉")}
+function reconcileFocus(){let st=readFocus();if(!st)return;if(st.running&&st.endAt){focusTotal=Number(st.total)||focusTotal;focusEndAt=Number(st.endAt);focusTarget=st.target||null;focusLeft=Math.max(0,Math.ceil((focusEndAt-Date.now())/1000));if(focusLeft<=0){focusEndAt=null;focusLeft=0;focusTarget=null;writeFocus();cancelFocusNotification()}else{clearInterval(focusTimer);focusTimer=setInterval(()=>{focusLeft=Math.max(0,Math.ceil((focusEndAt-Date.now())/1000));renderFocus();if(focusLeft<=0)finishFocus()},250)}}else{focusTotal=Number(st.total)||focusTotal;focusLeft=Number(st.left)||focusTotal;focusTarget=st.target||null;focusEndAt=null}}
+window.openFocus=(type=null,id=null)=>{reconcileFocus();if(type&&id&&!focusEndAt){focusTarget={type,id};writeFocus()}let targetLabel=focusTarget?.type==="goal"?data.goals.find(g=>g.id===focusTarget.id)?.title:focusTarget?.type==="event"?data.events.find(e=>e.id===focusTarget.id)?.title:null;let amount=focusEndAt?Math.max(1,Math.ceil(focusLeft/60)):25;modal("Focus timer",`<div class="focus"><div class="focustarget">${targetLabel?`🎯 <strong>${esc(targetLabel)}</strong>`:"General study session"}</div><div id="focusclock">${formatFocus(focusLeft)}</div><p class="muted">The timer keeps running if you leave, minimize, or close StudyFlow. Android will notify you when it finishes.</p><div class="row"><label>Duration<input id="focusamount" type="number" min="1" step="1" value="${amount}"></label><label>Unit<select id="focusunit"><option value="seconds">Seconds</option><option value="minutes" selected>Minutes</option><option value="hours">Hours</option></select></label></div><button class="wide" onclick="setFocusDuration()">Set duration</button><button id="focusstart" class="primary wide" onclick="startFocus()">${focusEndAt?"Running…":"Start"}</button><button class="wide" onclick="resetFocus()">Reset</button></div>`);renderFocus()};
+window.setFocusDuration=()=>{if(focusEndAt)return;let n=Math.max(1,Number(document.querySelector("#focusamount")?.value||25)),u=document.querySelector("#focusunit")?.value||"minutes";let mult=u==="hours"?3600:u==="seconds"?1:60;focusTotal=Math.round(n*mult);focusLeft=focusTotal;writeFocus();renderFocus()};
+window.startFocus=async()=>{if(focusEndAt)return;if(!focusLeft)setFocusDuration();focusEndAt=Date.now()+focusLeft*1000;writeFocus();await scheduleFocusNotification();reconcileFocus();renderFocus();shell()};
+window.resetFocus=async()=>{clearInterval(focusTimer);focusTimer=null;focusEndAt=null;focusTarget=null;focusLeft=focusTotal;writeFocus();await cancelFocusNotification();renderFocus();shell()};
+window.addEventListener("visibilitychange",()=>{if(!document.hidden)reconcileFocus()});window.addEventListener("focus",()=>reconcileFocus());reconcileFocus();
 
 // ---------- profile picture ----------
 window.setPhoto=f=>{if(!f)return;const img=new Image();img.onload=()=>{const n=Math.min(img.width,img.height),c=document.createElement("canvas");c.width=c.height=256;c.getContext("2d").drawImage(img,(img.width-n)/2,(img.height-n)/2,n,n,0,0,256,256);data.profile.photo=c.toDataURL("image/jpeg",.85);save();closeModal();shell();profile()};img.onerror=()=>alert("Couldn't read that photo.");img.src=URL.createObjectURL(f)};

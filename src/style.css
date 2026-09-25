@@ -136,3 +136,26 @@ button:active,[onclick]:not(.backdrop):active{transform:scale(.93);filter:bright
 /* v20 focus/check polish */
 .chk{padding:0;line-height:0;place-items:center;overflow:hidden}
 .chk svg{display:block;width:11px;height:11px;margin:0}
+/* v20.1 inline focus timer + completion motion */
+.inlinefocus{flex:none;background:#f1edff;color:#6847d8;border:1px solid #e4dcff;border-radius:11px;padding:8px 9px;font-size:11px;font-weight:800;white-space:nowrap;transition:transform .16s ease,background .2s ease,box-shadow .2s ease}
+.inlinefocus:active{transform:scale(.92)}
+.inlinefocus.running{background:#19191f;color:#fff;border-color:#19191f;box-shadow:0 5px 14px rgba(25,25,31,.18);min-width:78px}
+.focustarget{display:inline-flex;align-items:center;gap:5px;padding:7px 10px;border-radius:999px;background:#f4f1ff;color:#6241d3;font-size:12px;max-width:100%;margin-bottom:4px}
+.focustarget strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:230px}
+.chk:active{transform:scale(.88)}
+@keyframes chkTap{0%{transform:scale(1)}35%{transform:scale(.84)}65%{transform:scale(1.16)}100%{transform:scale(1)}}
+.chk.anim{animation:chkTap .48s cubic-bezier(.34,1.56,.64,1)}
+.goalmini .complete:active,.goalmini>button:not(.chk):active{transform:scale(.93)}
+.goalmini .complete,.goalmini>button{transition:transform .16s ease}
+
+/* v20.1 inline focus timer + completion motion */
+.inlinefocus{flex:none;background:#f1edff;color:#6847d8;border:1px solid #e4dcff;border-radius:11px;padding:8px 9px;font-size:11px;font-weight:800;white-space:nowrap;transition:transform .16s ease,background .2s ease,box-shadow .2s ease}
+.inlinefocus:active{transform:scale(.92)}
+.inlinefocus.running{background:#19191f;color:#fff;border-color:#19191f;box-shadow:0 5px 14px rgba(25,25,31,.18);min-width:78px}
+.focustarget{display:inline-flex;align-items:center;gap:5px;padding:7px 10px;border-radius:999px;background:#f4f1ff;color:#6241d3;font-size:12px;max-width:100%;margin-bottom:4px}
+.focustarget strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:230px}
+.chk:active{transform:scale(.88)}
+@keyframes chkTap{0%{transform:scale(1)}35%{transform:scale(.84)}65%{transform:scale(1.16)}100%{transform:scale(1)}}
+.chk.anim{animation:chkTap .48s cubic-bezier(.34,1.56,.64,1)}
+.goalmini .complete,.goalmini>button{transition:transform .16s ease}
+.goalmini .complete:active,.goalmini>button:active{transform:scale(.93)}
