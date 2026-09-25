@@ -1,10 +1,13 @@
 # StudyFlow v22
 
-- Rebuilt from the known-good v20 full source (not v21).
-- Removed Grades and Academic Calendar from the Settings UI.
-- Added Settings → Send test notification.
-- Focus timer supports seconds, minutes and hours.
-- Focus timer uses a real end timestamp so it continues through backgrounding/closing the app.
-- Native Android notification is scheduled for focus completion.
-- Live Focus button/timer can target a specific goal or event.
-- Completion animation and scanner-free Subjects remain.
+## Focus + interaction update
+- Live Focus countdown is shown beside the exact goal/task being focused.
+- Focus sessions use a real end timestamp, so the session continues while StudyFlow is minimized, another app is open, or StudyFlow is closed.
+- Android schedules a native completion notification for the Focus session.
+- Focus supports seconds, minutes, and hours.
+- Event and goal completion controls use centered checkmarks with press/bounce feedback.
+- Other buttons retain the app-wide push/tap feedback.
+- The in-app tutorial has been updated for the current features and now starts when StudyFlow launches.
+- Settings still includes Send test notification.
+- Scanner remains permanently removed.
+- Grades and Academic Calendar remain removed from the visible app navigation/settings.
