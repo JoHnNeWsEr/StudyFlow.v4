@@ -75,7 +75,7 @@ function home(){
  </section>`;
 }
 function classCard(x){return `<div class="card classcard"><div class="time">${fmtTime(x.start)}<small>${fmtTime(x.end)}</small></div><div class="line"></div><div class="grow"><strong>${esc(subjectName(x.subjectId))}</strong><span>${esc(x.teacher||"")} ${x.room?"· "+esc(x.room):""}</span></div><button class="dots" onclick="editClass('${x.id}')">⋯</button></div>`}
-function eventCard(e){const d=e.status==="Completed";return `<div class="card eventcard ${d?"done":""}"><button class="chk ${d?"on":""}" onclick="toggleDone('${e.id}',this)" aria-label="Mark complete"><span class="burst"></span><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button><div class="typeicon t-${e.type.toLowerCase()}">${icon(e.type)}</div><div class="grow"><strong>${esc(e.title)}</strong><span>${esc(e.type)} · ${esc(subjectName(e.subjectId))}</span><small>${d?"✓ Completed":fmtDate(e.date)+(e.time?" · "+fmtTime(e.time):"")}</small></div><button class="dots" onclick="editEvent('${e.id}')">⋯</button></div>`}
+function eventCard(e){const d=e.status==="Completed";return `<div class="card eventcard ${d?"done":""}"><button class="chk ${d?"on":""}" onclick="toggleDone('${e.id}',this)" aria-label="Mark complete"><span class="burst"></span><svg viewBox="0 0 24 24"><path d="M5 12l4.5 4.5L19 7.5"/></svg></button><div class="typeicon t-${e.type.toLowerCase()}">${icon(e.type)}</div><div class="grow"><strong>${esc(e.title)}</strong><span>${esc(e.type)} · ${esc(subjectName(e.subjectId))}</span><small>${d?"✓ Completed":fmtDate(e.date)+(e.time?" · "+fmtTime(e.time):"")}</small></div><button class="dots" onclick="editEvent('${e.id}')">⋯</button></div>`}
 
 function schedule(){
  let days=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
@@ -296,7 +296,13 @@ function findHeader(lines){let best=null,n=0;for(const l of lines){const k=hdrKe
 const okw=w=>w.c==null||w.c>=45;
 function assignCols(words,bounds){ // bounds: [{key,x0,x1}] sorted by x
  const out={};for(const b of bounds)out[b.key]="";
- for(const w of words){if(!okw(w))continue;const b=bounds.find(b=>w.x>=b.x0&&w.x<b.x1)||bounds[bounds.length-1];out[b.key]=(out[b.key]?out[b.key]+" ":"")+w.t}
+ const hasDesc=bounds.some(b=>b.key==="desc");
+ for(const w of words){if(!okw(w))continue;let b=bounds.find(b=>w.x>=b.x0&&w.x<b.x1)||bounds[bounds.length-1];
+  // course/section codes are short and uppercase/numeric (GE-GS, ELC 211, PATHFIT 3...). A word with a
+  // lowercase letter landing in those columns is almost certainly the description text spilling over,
+  // which happens when a course code is unusually short (e.g. "AC 4") and the description starts early.
+  if((b.key==="course"||b.key==="section")&&hasDesc&&/[a-z]/.test(w.t))b=bounds.find(x=>x.key==="desc")||b;
+  out[b.key]=(out[b.key]?out[b.key]+" ":"")+w.t}
  for(const k in out)out[k]=out[k].replace(/[|_\[\]]/g," ").replace(/\s+/g," ").trim();
  return out;
 }
@@ -328,8 +334,12 @@ window.parseProgram=function(text,data){
     const c=assignCols(l.words,CB.bounds);
     if(c.desc)prev.name=cleanName(prev.name+" "+c.desc);if(c.inst)prev.teacher=cleanTeacher((prev.teacher?prev.teacher+" ":"")+c.inst);pl=l}
    continue}
+  if(/lunch|flag ceremony|break|vacant/i.test(line)){prev=null;continue}
   let name="",teacher="";
-  if(useCols&&l.words){const c=assignCols(l.words,CB.bounds);name=c.desc;teacher=c.inst||""}
+  if(useCols&&l.words){
+   let c=assignCols(l.words,CB.bounds);
+   if(!c.desc){const c2=assignCols(l.words.map(w=>({...w,c:100})),CB.bounds);if(c2.desc)c=c2} // low-confidence row: retry without dropping words, so we don't lose real subjects
+   name=c.desc;teacher=c.inst||""}
   else{const after=line.slice(tm.index+tm[0].length).trim();
    if(/lunch|flag|break|vacant/i.test(after)){prev=null;continue}
    let rest=after,m1=rest.match(/^(\S+(?:\s+\d{1,4}[A-Za-z]?)?)\s+(.+)$/);
