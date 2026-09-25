@@ -32,6 +32,8 @@ jobs:
       - name: Use permanent signing key (keeps your data on updates)
         run: mkdir -p ~/.android && cp debug.keystore ~/.android/debug.keystore
       - run: npx cap sync android
+      - name: Add live Focus notification
+        run: python3 scripts/add-focus-native.py
       - run: chmod +x gradlew && ./gradlew assembleDebug
         working-directory: android
       - name: Show signing fingerprint (should be identical every build)

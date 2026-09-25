@@ -144,3 +144,5 @@ button:active,[onclick]:not(.backdrop):active{transform:scale(.93);filter:bright
 .focusdot{width:7px;height:7px;border-radius:50%;background:#72f0bf;animation:focusPulse 1s ease-in-out infinite}
 @keyframes focusPulse{50%{transform:scale(.65);opacity:.55}}
 .chk.goalcheck:active,.goalcheck.anim{animation:chkPop .55s cubic-bezier(.34,1.56,.64,1)}
+/* v23 Home events */
+.homeevents{display:grid;gap:10px;margin-bottom:16px}.homeevent{display:flex;align-items:center;gap:10px;padding:12px 13px}.homeevent .typeicon{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;font-weight:800;flex:none}.homeevent .grow strong{font-size:13px}.homeevent .grow span{font-size:11px}.homeevent .grow small{font-size:10px}.homeevent .chk{margin-left:0}
