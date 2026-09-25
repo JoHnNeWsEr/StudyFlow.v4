@@ -133,29 +133,3 @@ button:active,[onclick]:not(.backdrop):active{transform:scale(.93);filter:bright
 /* ----- v18 study tools ----- */
 .studygoalgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:0 0 10px}.studygoalstat{margin:0;padding:16px;min-height:105px;display:flex;flex-direction:column;justify-content:center}.studygoalstat .staticon{font-size:21px;margin-bottom:8px}.studygoalstat b{font-size:24px;line-height:1}.studygoalstat>span:last-child{font-size:11px;color:#777;font-weight:700;margin-top:5px}.studygoalpanel{padding:16px}.studygoalhead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:13px}.studygoalhead strong,.studygoalhead span{display:block}.studygoalhead strong{font-size:15px}.studygoalhead span{font-size:11px;color:#888;margin-top:3px}.progressbar{height:7px;background:#eeeef3;border-radius:99px;overflow:hidden;margin-bottom:13px}.progressbar span{display:block;height:100%;background:#7c5cff;border-radius:99px;transition:width .25s ease}.studygoalpanel .goalmini{padding:9px 0;margin:0;border-top:1px solid #f0f0f4}.studygoalpanel .goalmini:first-of-type{border-top:0}.studygoalpanel .goalmini button{flex:none}@media(max-width:380px){.studygoalhead{align-items:flex-start;flex-direction:column}.studygoalhead .primary{width:100%}}
 .statgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:0 0 14px}.stat{border:1px solid var(--line,#e7e5ef);background:var(--card,#fff);border-radius:16px;padding:13px 8px;text-align:center}.stat b{display:block;font-size:22px}.stat span{font-size:11px;color:var(--muted,#777);font-weight:700}.goalmini{display:flex;align-items:center;gap:12px;margin-bottom:10px}.goalmini .chk{margin:0}.goalmini.done{opacity:.55}.note,.grade,.minirow{display:flex;align-items:center;gap:12px}.note small{display:block;margin-top:4px}.minirow{padding:10px 0;border-bottom:1px solid var(--line,#e7e5ef)}.minirow b{width:44px}.hubhero{display:flex;align-items:center;gap:12px;padding:12px;border-radius:16px;background:rgba(124,92,255,.08);margin-bottom:10px}.hubhero strong,.hubhero span{display:block}.hubdot{width:14px;height:14px;border-radius:50%;background:#7c5cff}.focus{text-align:center;padding:16px}.focus #focusclock{font-size:56px;font-weight:900;letter-spacing:-.04em;margin:12px 0}.focus button{margin-top:10px}.subject{cursor:pointer}
-/* v20 focus/check polish */
-.chk{padding:0;line-height:0;place-items:center;overflow:hidden}
-.chk svg{display:block;width:11px;height:11px;margin:0}
-/* v20.1 inline focus timer + completion motion */
-.inlinefocus{flex:none;background:#f1edff;color:#6847d8;border:1px solid #e4dcff;border-radius:11px;padding:8px 9px;font-size:11px;font-weight:800;white-space:nowrap;transition:transform .16s ease,background .2s ease,box-shadow .2s ease}
-.inlinefocus:active{transform:scale(.92)}
-.inlinefocus.running{background:#19191f;color:#fff;border-color:#19191f;box-shadow:0 5px 14px rgba(25,25,31,.18);min-width:78px}
-.focustarget{display:inline-flex;align-items:center;gap:5px;padding:7px 10px;border-radius:999px;background:#f4f1ff;color:#6241d3;font-size:12px;max-width:100%;margin-bottom:4px}
-.focustarget strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:230px}
-.chk:active{transform:scale(.88)}
-@keyframes chkTap{0%{transform:scale(1)}35%{transform:scale(.84)}65%{transform:scale(1.16)}100%{transform:scale(1)}}
-.chk.anim{animation:chkTap .48s cubic-bezier(.34,1.56,.64,1)}
-.goalmini .complete:active,.goalmini>button:not(.chk):active{transform:scale(.93)}
-.goalmini .complete,.goalmini>button{transition:transform .16s ease}
-
-/* v20.1 inline focus timer + completion motion */
-.inlinefocus{flex:none;background:#f1edff;color:#6847d8;border:1px solid #e4dcff;border-radius:11px;padding:8px 9px;font-size:11px;font-weight:800;white-space:nowrap;transition:transform .16s ease,background .2s ease,box-shadow .2s ease}
-.inlinefocus:active{transform:scale(.92)}
-.inlinefocus.running{background:#19191f;color:#fff;border-color:#19191f;box-shadow:0 5px 14px rgba(25,25,31,.18);min-width:78px}
-.focustarget{display:inline-flex;align-items:center;gap:5px;padding:7px 10px;border-radius:999px;background:#f4f1ff;color:#6241d3;font-size:12px;max-width:100%;margin-bottom:4px}
-.focustarget strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:230px}
-.chk:active{transform:scale(.88)}
-@keyframes chkTap{0%{transform:scale(1)}35%{transform:scale(.84)}65%{transform:scale(1.16)}100%{transform:scale(1)}}
-.chk.anim{animation:chkTap .48s cubic-bezier(.34,1.56,.64,1)}
-.goalmini .complete,.goalmini>button{transition:transform .16s ease}
-.goalmini .complete:active,.goalmini>button:active{transform:scale(.93)}

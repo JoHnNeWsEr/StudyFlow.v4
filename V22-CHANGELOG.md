@@ -1,7 +1,10 @@
 # StudyFlow v22
 
-- Rebuilt from the last known-good v20 source to avoid the v21 white-screen regression.
-- Removed Grades and Academic Calendar entries from Settings.
-- Kept the Settings test-notification control.
-- Preserved Study & Goals, customizable/background Focus Timer, task/goal focus controls, completion animations, and scanner removal.
-- Source JavaScript syntax verified with Node.
+- Rebuilt from the known-good v20 full source (not v21).
+- Removed Grades and Academic Calendar from the Settings UI.
+- Added Settings → Send test notification.
+- Focus timer supports seconds, minutes and hours.
+- Focus timer uses a real end timestamp so it continues through backgrounding/closing the app.
+- Native Android notification is scheduled for focus completion.
+- Live Focus button/timer can target a specific goal or event.
+- Completion animation and scanner-free Subjects remain.
