@@ -110,7 +110,7 @@ function settings(){
  <div class="settinggroup"><h3>Appearance</h3><button class="setting" onclick="toggleTheme()"><span>◐</span><div><strong>Theme</strong><small>${data.theme==="light"?"Light":"Dark"}</small></div><b>›</b></button></div>
  <div class="settinggroup"><h3>Reminders</h3><button class="setting" onclick="toggleNotifications()"><span>🔔</span><div><strong>Notifications</strong><small>${data.notifications?"Enabled":"Disabled"}</small></div><b>${data.notifications?"ON":"OFF"}</b></button><label class="setting"><span>⏰</span><div><strong>Class reminder</strong><small>Before each class starts</small></div><select onchange="setClassRemind(this.value)">${[[0,"Off"],[5,"5 min"],[10,"10 min"],[15,"15 min"],[30,"30 min"]].map(o=>`<option value="${o[0]}" ${(data.classRemind??10)==o[0]?"selected":""}>${o[1]}</option>`).join("")}</select></label><button class="setting" onclick="openSound()"><span>🔊</span><div><strong>Notification sound</strong><small>${data.soundOn===false?"Off":data.sound&&data.sound!=="default"?prettyS(data.sound)+" · "+(data.soundDur||15)+" sec":"Phone default"}</small></div><b>›</b></button><button class="setting" onclick="testNotify()"><span>🧪</span><div><strong>Send test notification</strong><small>Arrives in 5 seconds</small></div><b>TEST</b></button></div>
  <div class="settinggroup"><h3>Help</h3><button class="setting" onclick="startTour()"><span>🎓</span><div><strong>Replay tutorial</strong><small>A quick guided tour of the app</small></div><b>›</b></button></div><div class="settinggroup"><h3>Backup</h3><button class="setting" onclick="openBackup()"><span>💾</span><div><strong>Backup &amp; restore</strong><small>Save or move your data</small></div><b>›</b></button></div><div class="settinggroup"><h3>Data</h3><button class="setting danger" onclick="resetData()"><span>↺</span><div><strong>Reset all data</strong><small>Remove subjects, classes and events</small></div><b>›</b></button></div>
- <p class="version">StudyFlow • MVP 1.0</p></section>`;
+ <p class="version">StudyFlow • 1.5.0</p></section>`;
 }
 
 function modal(title,body){
@@ -276,8 +276,19 @@ const fixT=t=>t.replace(/\b([0-9OoIl|]{1,2})[:.;]([0-9OoIl|]{2})\b/g,(m,a,b)=>{c
 function to24(h,m,ref,ap){h=+h;if(ap)h=(h%12)+(ap==="p"?12:0);else if(h>=1&&h<=6)h+=12;let t=h*60+ +m;if(ref!=null&&t<=ref)t+=720;return t}
 function hhmm(t){t=t%1440;return String(Math.floor(t/60)).padStart(2,"0")+":"+String(t%60).padStart(2,"0")}
 function lineDays(pre){
- const f=[...pre.matchAll(DAYRE)].map(x=>DAYMAP[x[1].slice(0,3).toLowerCase()]);if(f.length)return[...new Set(f)];
- const out=[];for(const tk of pre.split(/[\s\/,]+/)){if(tk&&tk.length<=6&&/^(?:Th|Su|Sa|M|T|W|F|S)+$/i.test(tk))out.push(...[...tk.matchAll(/Th|Su|Sa|M|T|W|F|S/gi)].map(x=>CODEMAP[x[0].toLowerCase()]))}
+ const text=String(pre||"");
+ const f=[...text.matchAll(DAYRE)].map(x=>DAYMAP[x[1].slice(0,3).toLowerCase()]);
+ if(f.length)return[...new Set(f)];
+ const out=[];
+ // Common compact COR/class-program codes: MWF, MTh, TTh, MTWThF, TF, Sa, Su.
+ // Match Th/Su/Sa before single-letter codes so Thursday/Sunday/Saturday survive OCR.
+ for(const raw of text.split(/[\s\/,;|]+/)){
+  const tk=raw.replace(/[^A-Za-z]/g,"");
+  if(!tk||tk.length>14)continue;
+  const hits=tk.match(/Th|Su|Sa|M|T|W|F|S/gi)||[];
+  if(hits.join("").toLowerCase()!==tk.toLowerCase())continue;
+  for(const h of hits){const d=CODEMAP[h.toLowerCase()];if(d)out.push(d)}
+ }
  return[...new Set(out)];
 }
 function lev(a,b){const m=[];for(let i=0;i<=a.length;i++){m[i]=[i];for(let j=1;j<=b.length;j++)m[i][j]=i?Math.min(m[i-1][j]+1,m[i][j-1]+1,m[i-1][j-1]+(a[i-1]===b[j-1]?0:1)):j}return m[a.length][b.length]}
@@ -312,7 +323,27 @@ function makeBounds(keys){
  return{bounds,has:k=>keys[k]!=null};
 }
 function cleanTeacher(t){t=t.replace(/[|_]/g," ").replace(/\s+/g," ").trim();const p=t.split(" ");if(p.length>1&&/^[A-Za-z]{1,2}$/.test(p[p.length-1])&&!/^[A-Z]\.$/.test(p[p.length-1]))p.pop();return p.join(" ")}
-function cleanName(n){return n.replace(/^[^A-Za-z0-9]+|[\s|,;:.\-]+$/g,"").replace(/\s+\d(\s+\d)?$/,"").slice(0,140)}
+function cleanName(n){return n.replace(/^[^A-Za-z0-9]+|[\s|,;:.\-]+$/g,"").replace(/\s+\d(\s+\d)?$/," ").replace(/\s+/g," ").trim().slice(0,140)}
+function normalizeSubjectName(n){
+ n=cleanName(n).replace(/\bPhilippines\s+Electrical\s+Code\b/gi,"").replace(/\s+/g," ").trim();
+ const fixes=[
+  [/^for\s+Industrial\s+Technologist$/i,"Chemistry for Industrial Technologist"],
+  [/^Technology\s+Management$/i,"Material Technology Management"],
+  [/^Electrical\s+Computer-Aided\s+Design(?:\s+Philippines\s+Electrical\s+Code)?$/i,"Electrical Computer-Aided Design"],
+  [/^Choices?\s+Dance/i,"Choice of Dance, Sports, Martial Arts, Group Exercise, Outdoor and Adventure Activities"]
+ ];
+ for(const [re,v] of fixes)if(re.test(n))return v;
+ return n;
+}
+function rowTextFallback(line,tm){
+ let s=line.slice(tm.index+tm[0].length).replace(/\s+/g," ").trim();
+ s=s.replace(/\b(?:lunch|flag ceremony|break|vacant)\b.*$/i,"").trim();
+ s=s.replace(/^(?:[A-Z]{1,8}(?:[- ][A-Z0-9]{1,8})?\s+\d{1,4}[A-Za-z]?|[A-Z]{1,8}[-][A-Z]{1,8}|[A-Z]{2,8}\s+\d+)\s+/i,"");
+ const unit=s.match(/\s+\d{1,2}\s+\d{1,2}\s+/); if(unit)s=s.slice(0,unit.index).trim();
+ const tm2=s.match(/\s+((?:Mr|Mrs|Ms|Dr|Engr|Prof|Atty|Sir|Maam)\.?\s+[A-Z][\w.'’ -]+|[A-Z][A-Za-z'’-]+,\s*[A-Z][A-Za-z.'’ -]+)$/);
+ if(tm2&&tm2.index>2)s=s.slice(0,tm2.index).trim();
+ return normalizeSubjectName(s);
+}
 window.parseProgram=function(text,data){
  const L=data&&data.lines&&data.lines.length?data.lines:null,lines=[];
  if(L)for(const l of L){const ws=(l.words||[]).map(w=>({t:w.text,x:(w.bbox.x0+w.bbox.x1)/2,c:w.confidence}));lines.push({text:fixT(l.text.replace(/[|_\[\]]/g," ").replace(/\s+/g," ").trim()),words:ws,y0:l.bbox.y0,y1:l.bbox.y1})}
@@ -342,11 +373,14 @@ window.parseProgram=function(text,data){
    name=c.desc;teacher=c.inst||""}
   else{const after=line.slice(tm.index+tm[0].length).trim();
    if(/lunch|flag|break|vacant/i.test(after)){prev=null;continue}
-   let rest=after,m1=rest.match(/^(\S+(?:\s+\d{1,4}[A-Za-z]?)?)\s+(.+)$/);
-   if(m1&&(/\d/.test(m1[1])||/-/.test(m1[1])||/^[A-Z]{2,8}$/.test(m1[1])))rest=m1[2];
-   let m2=rest.match(/^(.*?)\s+\d\s+\d\s+(.*)$/),m3;
-   if(m2){name=m2[1];teacher=m2[2]}else if((m3=rest.match(TEACH))&&m3.index>2){teacher=m3[1];name=rest.slice(0,m3.index)}else name=rest}
-  name=cleanName(name);teacher=cleanTeacher(teacher);
+   name=rowTextFallback(line,tm);
+   const m3=after.match(TEACH);if(m3&&m3.index>2)teacher=cleanTeacher(m3[1]);
+   if(!name){prev=null;continue}
+  }
+  name=normalizeSubjectName(name);teacher=cleanTeacher(teacher);
+  if(useCols && l.words && (name.length<8 || /^(?:for|technology|design)$/i.test(name))){
+   const fb=rowTextFallback(line,tm);if(fb.length>=name.length && fb.length>=8)name=fb;
+  }
   if(!name){prev=null;continue}
   let d=daysText?lineDays(daysText):[];
   if(!d.length){const pre=useCols&&l.words?l.words.filter(w=>w.x<(CB?CB.bounds.find(b=>b.key==="desc").x0:0)).map(w=>w.t).join(" "):line.slice(0,tm.index);d=lineDays(pre).length?lineDays(pre):headingDays}
@@ -368,25 +402,149 @@ window.openScan=()=>modal("Scan class program",`<div class="scanhero"><div class
 <input id="scanpick" type="file" accept="image/*" hidden onchange="scanFile(this.files[0])">
 <div class="scanprog" id="scanprog"><div class="bar"><i id="scanbar"></i></div><p id="scanstat"></p></div>
 <button type="button" class="linkbtn" onclick="reviewScan([])">✍️ Skip and add rows by hand</button>`);
-function prep(file){return new Promise((res,rej)=>{const img=new Image();img.onload=()=>{
- const k=Math.min(1,2000/img.width),W=Math.round(img.width*k),H=Math.round(img.height*k),c=document.createElement("canvas");c.width=W;c.height=H;const x=c.getContext("2d");x.drawImage(img,0,0,W,H);
- const d=x.getImageData(0,0,W,H),p=d.data,g=new Float32Array(W*H);
- for(let i=0,j=0;i<p.length;i+=4,j++)g[j]=.3*p[i]+.59*p[i+1]+.11*p[i+2];
- const S=W+1,I=new Float64Array(S*(H+1));for(let y=1;y<=H;y++){let r=0;for(let z=1;z<=W;z++){r+=g[(y-1)*W+z-1];I[y*S+z]=I[(y-1)*S+z]+r}}
- const R=Math.max(15,Math.round(W/60));
- for(let y=0;y<H;y++){const y0=Math.max(0,y-R),y1=Math.min(H-1,y+R);for(let z=0;z<W;z++){const x0=Math.max(0,z-R),x1=Math.min(W-1,z+R),n=(x1-x0+1)*(y1-y0+1),m=(I[(y1+1)*S+x1+1]-I[y0*S+x1+1]-I[(y1+1)*S+x0]+I[y0*S+x0])/n,v=g[y*W+z]<m*.88?0:255,q=(y*W+z)*4;p[q]=p[q+1]=p[q+2]=v}}
- x.putImageData(d,0,0);res(c)};img.onerror=rej;img.src=URL.createObjectURL(file)})}
+function prepVariants(file){return new Promise((res,rej)=>{const img=new Image();img.onload=()=>{
+ const k=Math.min(1,2200/img.width),W=Math.round(img.width*k),H=Math.round(img.height*k);
+ const make=(mode)=>{const c=document.createElement("canvas");c.width=W;c.height=H;const x=c.getContext("2d");x.drawImage(img,0,0,W,H);if(mode==="original")return c;
+  const d=x.getImageData(0,0,W,H),p=d.data,g=new Float32Array(W*H);
+  for(let i=0,j=0;i<p.length;i+=4,j++)g[j]=.3*p[i]+.59*p[i+1]+.11*p[i+2];
+  if(mode==="gray"){for(let j=0;j<g.length;j++){let v=(g[j]-128)*1.45+128;v=Math.max(0,Math.min(255,v));const q=j*4;p[q]=p[q+1]=p[q+2]=v}}
+  else {const S=W+1,I=new Float64Array(S*(H+1));for(let y=1;y<=H;y++){let r=0;for(let z=1;z<=W;z++){r+=g[(y-1)*W+z-1];I[y*S+z]=I[(y-1)*S+z]+r}}
+   const R=Math.max(15,Math.round(W/60));for(let y=0;y<H;y++){const y0=Math.max(0,y-R),y1=Math.min(H-1,y+R);for(let z=0;z<W;z++){const x0=Math.max(0,z-R),x1=Math.min(W-1,z+R),n=(x1-x0+1)*(y1-y0+1),m=(I[(y1+1)*S+x1+1]-I[y0*S+x1+1]-I[(y1+1)*S+x0]+I[y0*S+x0])/n,v=g[y*W+z]<m*.90?0:255,q=(y*W+z)*4;p[q]=p[q+1]=p[q+2]=v}}
+  }
+  x.putImageData(d,0,0);return c};
+ res([make("original"),make("gray"),make("threshold")]);
+};img.onerror=rej;img.src=URL.createObjectURL(file)})}
+
+// Dedicated COR/Certificate of Registration parser.
+// COR tables put the subject BEFORE the time, unlike many class-program layouts.
+// This parser keys rows off the course number so a missing OCR column cannot turn
+// two adjacent subjects into one subject or drop a GE-* row.
+const CORCODE=/^(?:(?:GE|AC|ELC|MSC|PATHFIT)\s*[- ]?\s*[A-Z0-9]+(?:[-][A-Z0-9]+)?|[A-Z]{1,8}\s*\d{1,4}(?:[-][A-Z0-9]+)?)/i;
+const CORSECTION=/^IT\s*\d\s*[A-Z0-9]?$/i;
+function corDays(s){
+ const t=String(s||"").replace(/[^A-Za-z]/g,"").toUpperCase();
+ if(!t)return[];
+ if(t.includes("MON")||t.includes("TUE")||t.includes("WED")||t.includes("THU")||t.includes("FRI")||t.includes("SAT")||t.includes("SUN"))return lineDays(s);
+ const out=[];
+ // NEMSU-style compact COR codes: TF = Tue/Fri, MTH = Mon/Tue/Thu, MWF = Mon/Wed/Fri.
+ const special={TF:["Tuesday","Friday"],MWF:["Monday","Wednesday","Friday"],MTH:["Monday","Tuesday","Thursday"],MT:["Monday","Tuesday"],MW:["Monday","Wednesday"],WF:["Wednesday","Friday"],TH:["Tuesday","Thursday"],TTH:["Tuesday","Thursday"],SA:["Saturday"],SU:["Sunday"]};
+ if(special[t])return special[t];
+ const re=/TH|SU|SA|M|T|W|F/g;let m;while((m=re.exec(t))){const d={M:"Monday",T:"Tuesday",W:"Wednesday",F:"Friday",TH:"Thursday",SA:"Saturday",SU:"Sunday"}[m[0]];if(d&&!out.includes(d))out.push(d)}
+ return out;
+}
+function corCourseCode(line){
+ const m=String(line||"").match(CORCODE);return m?m[0].replace(/\s+/g," ").trim():"";
+}
+function parseCORRows(lines){
+ const L=(lines||[]).map(l=>({text:fixT(String(l.text||"").replace(/[|_\[\]]/g," ").replace(/\s+/g," ").trim()),y0:l.bbox?.y0??0,y1:l.bbox?.y1??0})).filter(x=>x.text);
+ const rows=[];let cur=null;
+ const flush=()=>{if(!cur)return;let name=normalizeSubjectName(cur.name);if(name.length>=5&&cur.start&&cur.end&&cur.days.length){rows.push({...cur,name});}cur=null};
+ for(const l of L){
+  let line=l.text;
+  if(/^(course\s*no|section\s+descriptive|north\s+eastern|certificate\s+of\s+registration|note:|total\s+units|certified\s+by|printed\s+)/i.test(line))continue;
+  const code=corCourseCode(line);
+  const tm=line.match(TIMERE);
+  if(code&&tm){
+    flush();
+    let before=line.slice(tm.index).trim();
+    let left=line.slice(code.length,tm.index).trim();
+    left=left.replace(/^(?:IT\s*\d\s*[A-Z0-9]?\s*)/i,"").trim();
+    left=left.replace(/\s{2,}/g," ");
+    const after=line.slice(tm.index+tm[0].length).trim();
+    const dm=after.match(/^([A-Za-z]{1,10})(?=\s|$)/);
+    const days=corDays(dm?dm[1]:"");
+    const apE=tm[6]?(/p/i.test(tm[6])?"p":"a"):null,apS=tm[3]?(/p/i.test(tm[3])?"p":"a"):apE;
+    const a=to24(tm[1],tm[2],null,apS),b=to24(tm[4],tm[5],a,apE);
+    cur={code,name:left,teacher:"",room:"",days:[...new Set(days)],start:hhmm(a),end:hhmm(b)};
+    // Keep OCR tail only as a possible instructor/room; do not let units become the subject.
+    continue;
+  }
+  // A wrapped COR title line (PATHFIT is commonly two lines).
+  if(cur&&!tm&&!code){
+    if(/^(?:\d+(?:\.\d+)?|[A-Z]{1,3}\s*\d+(?:\.\d+)?|lec|lab|units?|instructor|room|bldg)$/i.test(line))continue;
+    const d=corDays(line);
+    if(d.length&&line.length<=12) { if(!cur.days.length)cur.days=d; continue; }
+    // If the line looks like a teacher/room/unit tail, leave it out of the title.
+    if(/^\d+(?:\.\d+)?\s+\d+(?:\.\d+)?(?:\s+\d+(?:\.\d+)?)?/i.test(line))continue;
+    if(/^(?:Mr|Mrs|Ms|Dr|Engr|Prof|Atty|Sir|Maam)\b/i.test(line)) {cur.teacher=cleanTeacher(line);continue;}
+    if(cur.name && line.length<80 && !/^(?:SY|Course|Year|Printed|Certified)/i.test(line))cur.name=(cur.name+" "+line).trim();
+  }
+ }
+ flush();
+ // Remove accidental duplicate rows while preserving distinct courses with the same time.
+ const out=[],seen=new Set();
+ for(const r of rows){const k=[normalizeSubjectName(r.name).toLowerCase(),r.start,r.end,[...r.days].sort().join(",")].join("|");if(!seen.has(k)){seen.add(k);out.push(r)}}
+ return out;
+}
+
+function looseScanRows(lines){
+ // Safety-net parser for table OCR. Some rows lose their column boxes/confidence,
+ // especially GE-* rows, even though the full text line is present. Re-read the
+ // flattened line so a missed column cannot make an entire subject disappear.
+ const out=[];let headingDays=[];
+ for(const l of lines||[]){
+  const line=fixT(String(l.text||"").replace(/[|_\[\]]/g," ").replace(/\s+/g," ").trim());if(!line)continue;
+  const hd=lineDays(line);if(hd.length&& !TIMERE.test(line)){headingDays=hd;continue}
+  TIMERE.lastIndex=0;const tm=line.match(TIMERE);if(!tm)continue;
+  if(/\b(?:lunch|flag ceremony|break|vacant)\b/i.test(line))continue;
+  const pre=line.slice(0,tm.index);
+  let days=lineDays(pre);if(!days.length)days=headingDays;
+  if(!days.length)continue;
+  let s=line.slice(tm.index+tm[0].length).trim();
+  // Remove common course/section codes from the flattened text.
+  s=s.replace(/^(?:[A-Z]{1,8}[-][A-Z0-9]{1,8}|[A-Z]{1,8}\s+\d{1,4}[A-Za-z]?|[A-Z]{2,8}\s+\d+)\s+/i,"");
+  let teacher="";const tm2=s.match(TEACH);if(tm2&&tm2.index>2){teacher=cleanTeacher(tm2[1]);s=s.slice(0,tm2.index).trim()}
+  // Units/hours are normally the two numbers immediately before the instructor.
+  s=s.replace(/\s+\d{1,2}\s+\d{1,2}(?:\s+|$).*$/," ").trim();
+  // If the OCR flattened a known instructor without a title, remove the numeric
+  // tail only; the subject itself is kept intact.
+  s=s.replace(/\s+\d{1,2}\s*$/," ").trim();
+  s=normalizeSubjectName(s);
+  if(!s||s.length<5)continue;
+  const apE=tm[6]?(/p/i.test(tm[6])?"p":"a"):null,apS=tm[3]?(/p/i.test(tm[3])?"p":"a"):apE;
+  const a=to24(tm[1],tm[2],null,apS),b=to24(tm[4],tm[5],a,apE);
+  out.push({name:s,teacher,room:"",days:[...new Set(days)],start:hhmm(a),end:hhmm(b)});
+ }
+ return out;
+}
+function mergeScanRows(groups){
+ const all=[];for(const rows of groups)for(const r of rows){
+  const name=normalizeSubjectName(r.name);if(!name||name.length<5||!r.days?.length||!r.start||!r.end)continue;
+  const key=[name.toLowerCase().replace(/[^a-z0-9]+/g," ").trim(),r.start,r.end,[...r.days].sort().join(",")].join("|");
+  if(!all.some(x=>[normalizeSubjectName(x.name).toLowerCase().replace(/[^a-z0-9]+/g," ").trim(),x.start,x.end,[...x.days].sort().join(",")].join("|")===key))all.push({...r,name});
+ }
+ // Prefer the cleaner teacher/name when multiple OCR passes found the same class.
+ const byKey=new Map();for(const r of all){const key=[normalizeSubjectName(r.name).toLowerCase().replace(/[^a-z0-9]+/g," ").trim(),r.start,r.end,[...r.days].sort().join(",")].join("|");const old=byKey.get(key);if(!old||((r.teacher||"").length>(old.teacher||"").length))byKey.set(key,r)}
+ return [...byKey.values()];
+}
 window.scanFile=async f=>{
  if(!f)return;const st=document.querySelector("#scanstat"),bar=p=>{document.querySelector("#scanprog").classList.add("on");document.querySelector("#scanbar").style.width=p+"%"};
  try{
-  bar(8);st.textContent="Preparing photo…";const c=await prep(f);
-  bar(20);st.textContent="Loading the reader (first time needs internet)…";
+  bar(8);st.textContent="Preparing photo…";const variants=await prepVariants(f);
+  bar(18);st.textContent="Loading the reader (first time needs internet)…";
   const {createWorker}=await import("tesseract.js");
-  const w=await createWorker("eng",1,{logger:m=>{if(m.status==="recognizing text"){bar(25+Math.round(m.progress*70));st.textContent="Reading your schedule… "+Math.round(m.progress*100)+"%"}}});
-  await w.setParameters({tessedit_pageseg_mode:"6",preserve_interword_spaces:"1"});
-  const {data}=await w.recognize(c);await w.terminate();
-  const rows=parseProgram(data.text,{lines:getLines(data)});
-  reviewScan(rows,rows.length?"":"I couldn't find any classes in that photo. Add them by hand below, or retake a straighter, brighter photo.");
+  const w=await createWorker("eng",1,{logger:m=>{if(m.status==="recognizing text"){bar(20+Math.round(m.progress*68));st.textContent="Reading your schedule… "+Math.round(m.progress*100)+"%"}}});
+  const passes=[
+   [variants[0],"6"], // original table image
+   [variants[1],"6"], // contrast-enhanced image catches faint GE rows
+   [variants[2],"11"]  // sparse-text pass catches rows that PSM 6 can skip
+  ];
+  const groups=[];
+  for(let i=0;i<passes.length;i++){
+   await w.setParameters({tessedit_pageseg_mode:passes[i][1],preserve_interword_spaces:"1"});
+   const {data}=await w.recognize(passes[i][0]);
+   const lines=getLines(data);
+   groups.push(parseProgram(data.text,{lines}));
+   groups.push(parseCORRows(lines));
+   groups.push(looseScanRows(lines));
+   // The raw OCR text is also parsed as a final fallback. This catches rows whose
+   // table boxes are incomplete even when Tesseract recognized the text itself.
+   if(data.text){const rawLines=data.text.split(/\n+/).map(text=>({text}));groups.push(parseCORRows(rawLines));groups.push(looseScanRows(rawLines));}
+   st.textContent="Combining detected class rows… "+Math.round(88+(i+1)*3)+"%";
+  }
+  await w.terminate();
+  const rows=mergeScanRows(groups);
+  reviewScan(rows,rows.length?`${rows.length} class rows detected. Check each one before importing.`:"I couldn't find any classes in that photo. Add them by hand below, or retake a straighter, brighter photo.");
  }catch(e){st.textContent="Scanning isn't available here ("+(e.message||e)+"). You can add rows by hand instead."}
 };
 let scanRows=[];
@@ -394,14 +552,23 @@ function rowHTML(r,i){return `<div class="card scanrow" data-i="${i}"><div class
 window.reviewScan=(rows,msg)=>{scanRows=rows;if(document.querySelector("#modal"))closeModal();modal("Review & edit",`<p class="muted">${msg||"Check each class. Fix anything that's wrong, then import."}</p><div id="scanlist">${rows.map(rowHTML).join("")}</div><button type="button" class="wide" onclick="addScanRow()">＋ Add row</button><button type="button" class="primary wide" onclick="importScan()">Import to my schedule</button>`)};
 window.addScanRow=()=>document.querySelector("#scanlist").insertAdjacentHTML("beforeend",rowHTML({name:"",teacher:"",room:"",days:[],start:"08:00",end:"09:00"},Date.now()));
 window.importScan=()=>{
- let n=0;document.querySelectorAll(".scanrow").forEach(el=>{
-  const name=el.querySelector(".rn").value.trim(),days=[...el.querySelectorAll(".rd:checked")].map(x=>x.value);if(!name||!days.length)return;
-  const teacher=el.querySelector(".rt").value.trim(),room=el.querySelector(".rr").value.trim(),start=el.querySelector(".rs").value,end=el.querySelector(".re").value;
-  let sub=data.subjects.find(x=>x.name.toLowerCase()===name.toLowerCase());
-  if(!sub){sub={id:uid(),name,teacher,room,notes:""};data.subjects.push(sub)}else{if(teacher&&!sub.teacher)sub.teacher=teacher;if(room&&!sub.room)sub.room=room}
-  days.forEach(d=>{if(!data.classes.some(c=>c.subjectId===sub.id&&c.day===d&&c.start===start))data.classes.push({id:uid(),subjectId:sub.id,day:d,start,end,teacher,room});n++});
+ let classesAdded=0,subjectsAdded=0,skipped=0;
+ document.querySelectorAll(".scanrow").forEach(el=>{
+  const name=el.querySelector(".rn").value.trim();
+  const days=[...el.querySelectorAll(".rd:checked")].map(x=>x.value);
+  const teacher=el.querySelector(".rt").value.trim(),room=el.querySelector(".rr").value.trim();
+  const start=el.querySelector(".rs").value,end=el.querySelector(".re").value;
+  if(!name||!days.length||!start||!end){skipped++;return}
+  let sub=data.subjects.find(x=>x.name.trim().toLowerCase()===name.toLowerCase());
+  if(!sub){sub={id:uid(),name,teacher,room,notes:""};data.subjects.push(sub);subjectsAdded++}
+  else{if(teacher&&!sub.teacher)sub.teacher=teacher;if(room&&!sub.room)sub.room=room}
+  days.forEach(d=>{
+   const exists=data.classes.some(c=>c.subjectId===sub.id&&c.day===d&&c.start===start&&c.end===end);
+   if(!exists){data.classes.push({id:uid(),subjectId:sub.id,day:d,start,end,teacher:teacher||sub.teacher||"",room:room||sub.room||""});classesAdded++}
+  });
  });
- save();closeModal();go("schedule");alert(n+" classes added to your schedule.");
+ save();closeModal();go("schedule");
+ alert(`Imported ${subjectsAdded} new subject${subjectsAdded===1?"":"s"} and ${classesAdded} class meeting${classesAdded===1?"":"s"}.${skipped?`\n\n${skipped} row${skipped===1?"":"s"} was skipped because it was missing a subject, day, start time, or end time.`:""}`);
 };
 
 // ---------- Backup FILE (save / share / restore) + automatic in-app backup ----------
