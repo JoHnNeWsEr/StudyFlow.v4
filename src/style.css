@@ -104,7 +104,7 @@ button:active,[onclick]:not(.backdrop):active{transform:scale(.93);filter:bright
 .pavbtns{display:flex;gap:10px}
 /* ----- events: realistic completion ----- */
 .eventcard{position:relative}
-.chk{position:relative;flex:none;width:19px;height:19px;border-radius:50%;border:1.5px solid #cfcfe0;display:grid;place-items:center;background:transparent;transition:background .25s,border-color .25s,box-shadow .25s}
+.chk{position:relative;flex:none;width:19px;height:19px;border-radius:50%;border:1.5px solid #cfcfe0;display:grid;place-items:center;padding:0;line-height:0;background:transparent;transition:background .25s,border-color .25s,box-shadow .25s}
 .chk svg{width:11px;height:11px;fill:none;stroke:#fff;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:24;stroke-dashoffset:24}
 .chk.on{background:linear-gradient(135deg,#34d399,#10b981);border-color:#10b981;box-shadow:0 5px 14px rgba(16,185,129,.45)}
 .chk.on svg{stroke-dashoffset:0}
@@ -146,3 +146,7 @@ button:active,[onclick]:not(.backdrop):active{transform:scale(.93);filter:bright
 .chk.goalcheck:active,.goalcheck.anim{animation:chkPop .55s cubic-bezier(.34,1.56,.64,1)}
 /* v23 Home events */
 .homeevents{display:grid;gap:10px;margin-bottom:16px}.homeevent{display:flex;align-items:center;gap:10px;padding:12px 13px}.homeevent .typeicon{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;font-weight:800;flex:none}.homeevent .grow strong{font-size:13px}.homeevent .grow span{font-size:11px}.homeevent .grow small{font-size:10px}.homeevent .chk{margin-left:0}
+/* ----- smooth transition when switching Home/Schedule/Events/Subjects/Settings ----- */
+#content{transition:opacity .22s cubic-bezier(.3,.7,.4,1),transform .22s cubic-bezier(.3,.7,.4,1)}
+#content.leave{opacity:0;transform:translateY(8px) scale(.98)}
+#content.enter{opacity:0;transform:translateY(8px) scale(.98)}

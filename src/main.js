@@ -66,7 +66,18 @@ function navIcon(n){const P={
  settings:'<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>'};
  return '<svg viewBox="0 0 24 24">'+P[n]+'</svg>'}
 function nav(v,i,t){return `<button class="${view===v?"active":""}" onclick="go('${v}')"><b>${i}</b><span>${t}</span></button>`}
-function go(v){view=v;shell();}
+function go(v){
+ if(v===view)return;
+ const c=document.querySelector("#content");
+ const reduced=matchMedia("(prefers-reduced-motion: reduce)").matches;
+ if(!c||reduced){view=v;shell();return;}
+ c.classList.add("leave");
+ setTimeout(()=>{
+  view=v;shell();
+  const nc=document.querySelector("#content");
+  if(nc){nc.classList.add("enter");requestAnimationFrame(()=>requestAnimationFrame(()=>nc.classList.remove("enter")))}
+ },130);
+}
 
 function render(){let c=document.querySelector("#content"); if(view==="home")c.innerHTML=home(); else if(view==="schedule")c.innerHTML=schedule(); else if(view==="events")c.innerHTML=events(); else if(view==="subjects")c.innerHTML=subjects(); else c.innerHTML=settings();}
 
@@ -332,7 +343,7 @@ function showStep(){
   }else{spot.style.display="none";tip.style.top=Math.max(40,innerHeight/2-110)+"px";}
  });
 }
-setTimeout(()=>startTour(),1900);
+if(!data.tourDone)setTimeout(()=>startTour(),1900);
 
 window.openBackup=()=>modal("Backup & restore",`<p class="muted">Tap Copy and paste it somewhere safe (Notes, WhatsApp to yourself). To restore, paste it back below and tap Restore.</p><textarea id="bk" rows="7" style="width:100%">${esc(JSON.stringify(data))}</textarea><button type="button" class="primary wide" onclick="copyBackup()">Copy backup</button><button type="button" class="delete wide" onclick="restoreBackup()">Restore from text above</button>`);
 window.copyBackup=async()=>{const t=document.querySelector("#bk");try{await navigator.clipboard.writeText(t.value);alert("Copied!")}catch(e){t.select();alert("Select all and copy the text manually.")}};
