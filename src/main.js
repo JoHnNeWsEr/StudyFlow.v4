@@ -422,91 +422,116 @@ function prepVariants(file){return new Promise((res,rej)=>{const img=new Image()
 const CORCODE=/^(?:(?:GE|AC|ELC|MSC|PATHFIT)\s*[- ]?\s*[A-Z0-9]+(?:[-][A-Z0-9]+)?|[A-Z]{1,8}\s*\d{1,4}(?:[-][A-Z0-9]+)?)/i;
 const CORSECTION=/^IT\s*\d\s*[A-Z0-9]?$/i;
 function corDays(s){
- const t=String(s||"").replace(/[^A-Za-z]/g,"").toUpperCase();
+ const t=String(s||'').replace(/[^A-Za-z]/g,'').toUpperCase();
  if(!t)return[];
- if(t.includes("MON")||t.includes("TUE")||t.includes("WED")||t.includes("THU")||t.includes("FRI")||t.includes("SAT")||t.includes("SUN"))return lineDays(s);
- const special={TF:["Tuesday","Friday"],MWF:["Monday","Wednesday","Friday"],MTH:["Monday","Tuesday","Thursday"],MT:["Monday","Tuesday"],MW:["Monday","Wednesday"],WF:["Wednesday","Friday"],TH:["Tuesday","Thursday"],TTH:["Tuesday","Thursday"],SA:["Saturday"],SU:["Sunday"]};
+ if(t.includes('MON')||t.includes('TUE')||t.includes('WED')||t.includes('THU')||t.includes('FRI')||t.includes('SAT')||t.includes('SUN'))return lineDays(s);
+ const special={TF:['Tuesday','Friday'],MWF:['Monday','Wednesday','Friday'],MTH:['Monday','Tuesday','Thursday'],MT:['Monday','Tuesday'],MW:['Monday','Wednesday'],WF:['Wednesday','Friday'],TH:['Tuesday','Thursday'],TTH:['Tuesday','Thursday'],SA:['Saturday'],SU:['Sunday']};
  if(special[t])return special[t];
  const out=[];const re=/TH|SU|SA|M|T|W|F/g;let m;
- while((m=re.exec(t))){const d={M:"Monday",T:"Tuesday",W:"Wednesday",F:"Friday",TH:"Thursday",SA:"Saturday",SU:"Sunday"}[m[0]];if(d&&!out.includes(d))out.push(d)}
+ while((m=re.exec(t))){const d={M:'Monday',T:'Tuesday',W:'Wednesday',F:'Friday',TH:'Thursday',SA:'Saturday',SU:'Sunday'}[m[0]];if(d&&!out.includes(d))out.push(d)}
  return out;
 }
-function corCourseCode(line){const m=String(line||"").match(CORCODE);return m?m[0]:"";}
+function corCourseCode(line){const m=String(line||'').match(CORCODE);return m?m[0]:'';}
 function corTitleFromLine(line,code,tm){
- let left=String(line||"").slice(code.length,tm.index).replace(/\s+/g," ").trim();
- // CORs normally put Section immediately after Course No. Remove it, but NEVER
- // remove words from the descriptive title just because they look short.
- left=left.replace(/^(?:IT\s*\d\s*[A-Z0-9]?)(?:\s+|$)/i,"").trim();
- left=left.replace(/^\d{1,3}[A-Z]?\s+/i,"").trim();
+ let left=String(line||'').slice(code.length,tm.index).replace(/\s+/g,' ').trim();
+ left=left.replace(/^(?:IT\s*\d\s*[A-Z0-9]?)(?:\s+|$)/i,'').trim();
+ left=left.replace(/^\d{1,3}[A-Z]?\s+/i,'').trim();
  return normalizeSubjectName(left);
 }
 function corTailInfo(after){
- const m=String(after||"").match(/^\s*([A-Za-z]{1,12})(?:\s|$)/);
+ const m=String(after||'').match(/^\s*([A-Za-z]{1,12})(?:\s|$)/);
  const days=m?corDays(m[1]):[];
- return {days,rest:m?String(after).slice(m[0].length).trim():String(after||"").trim()};
+ return {days,rest:m?String(after).slice(m[0].length).trim():String(after||'').trim()};
+}
+function corInstructorLine(line){
+ const x=String(line||'').replace(/\s+/g,' ').trim();
+ if(!x)return '';
+ if(/^(?:Mr|Mrs|Ms|Dr|Engr|Prof|Atty|Sir|Maam)\.?\s+/i.test(x))return cleanTeacher(x);
+ if(/^[A-Z][A-Za-z'’-]+,\s*[A-Z][A-Za-z.'’ -]+$/.test(x))return cleanTeacher(x);
+ return '';
+}
+function corTimeFirst(line,tm){
+ // Most of the supplied CORs are OCR'd in visual order: TIME CODE SUBJECT ...
+ // Example: "1:00-3:30 ELC211 Electrical Computer-Aided Design".
+ const before=line.slice(0,tm.index).trim();
+ const after=line.slice(tm.index+tm[0].length).trim();
+ const codeM=after.match(CORCODE);
+ if(!codeM)return null;
+ const code=codeM[0];
+ let rest=after.slice(codeM[0].length).trim();
+ // A short section token can appear between course code and title.
+ rest=rest.replace(/^IT\s*\d\s*[A-Z0-9]?\s+/i,'').trim();
+ const teacherMatch=rest.match(/\s+((?:Mr|Mrs|Ms|Dr|Engr|Prof|Atty|Sir|Maam)\.?\s+[A-Z][\w.'’ -]+|[A-Z][A-Za-z'’-]+,\s*[A-Z][A-Za-z.'’ -]+)$/);
+ let teacher='';
+ if(teacherMatch){teacher=cleanTeacher(teacherMatch[1]);rest=rest.slice(0,teacherMatch.index).trim();}
+ const days=lineDays(before);
+ return {code,name:normalizeSubjectName(rest),teacher,days};
 }
 function parseCORRows(lines){
  const L=(lines||[]).map(l=>({
-   text:fixT(String(l.text||"").replace(/[|_\[\]]/g," ").replace(/\s+/g," ").trim()),
-   y0:l.bbox?.y0??0,y1:l.bbox?.y1??0
+   text:fixT(String(l.text||'').replace(/[|_\[\]]/g,' ').replace(/\s+/g,' ').trim()),
+   words:l.words||null,y0:l.bbox?.y0??0,y1:l.bbox?.y1??0
  })).filter(x=>x.text);
  const rows=[];let cur=null;
  const flush=()=>{
    if(!cur)return;
    cur.name=normalizeSubjectName(cur.name);
-   if(cur.name.length>=5&&cur.start&&cur.end&&cur.days.length){cur.source="cor";rows.push({...cur});}
+   // Remove OCR junk and keep the complete descriptive title.
+   cur.name=cur.name.replace(/\s+(?:wi|pera|pera\.?|i|of)$/i,'').trim();
+   if(cur.name.length>=5&&cur.start&&cur.end&&cur.days.length){cur.source='cor';rows.push({...cur});}
    cur=null;
  };
+ let headingDays=[];
  for(const l of L){
-   const line=l.text;
-   if(!line)continue;
+   const line=l.text;if(!line)continue;
    if(/^(course\s*no|section\s+descriptive|north\s+eastern|certificate\s+of\s+registration|note:|total\s+units|certified\s+by|printed\s+)/i.test(line))continue;
-
-   const code=corCourseCode(line);
    const tm=line.match(TIMERE);
-   if(code&&tm){
-     flush();
-     const name=corTitleFromLine(line,code,tm);
-     const after=line.slice(tm.index+tm[0].length).trim();
-     const tail=corTailInfo(after);
-     const apE=tm[6]?(/p/i.test(tm[6])?"p":"a"):null;
-     const apS=tm[3]?(/p/i.test(tm[3])?"p":"a"):apE;
-     const a=to24(tm[1],tm[2],null,apS),b=to24(tm[4],tm[5],a,apE);
-     cur={code,name,teacher:"",room:"",days:[...new Set(tail.days)],start:hhmm(a),end:hhmm(b)};
-     // If OCR placed the instructor immediately after the day code, capture it.
-     const possible=tail.rest;
-     if(possible && !/^\d+(?:\.\d+)?(?:\s+\d+(?:\.\d+)?){0,2}$/.test(possible)){
-       const inst=possible.match(TEACH);
-       if(inst)cur.teacher=cleanTeacher(inst[1]);
+   if(tm){
+     if(/\b(?:lunch|flag ceremony|break|vacant)\b/i.test(line)){flush();continue;}
+     const tf=corTimeFirst(line,tm);
+     if(tf){
+       flush();
+       const apE=tm[6]?(/p/i.test(tm[6])?'p':'a'):null;
+       const apS=tm[3]?(/p/i.test(tm[3])?'p':'a'):apE;
+       const a=to24(tm[1],tm[2],null,apS),b=to24(tm[4],tm[5],a,apE);
+       let days=tf.days.length?tf.days:headingDays;
+       // If the day code is after the title in a different COR layout, use it.
+       if(!days.length){const tail=corTailInfo(line.slice(tm.index+tm[0].length));days=tail.days;}
+       cur={code:tf.code,name:tf.name,teacher:tf.teacher||'',room:'',days:[...new Set(days)],start:hhmm(a),end:hhmm(b)};
+       continue;
      }
+     // Also support the alternate visual order: CODE ... SUBJECT ... TIME.
+     const code=corCourseCode(line);
+     if(code){
+       flush();
+       const name=corTitleFromLine(line,code,tm);
+       const after=line.slice(tm.index+tm[0].length).trim();
+       const tail=corTailInfo(after);
+       const apE=tm[6]?(/p/i.test(tm[6])?'p':'a'):null,apS=tm[3]?(/p/i.test(tm[3])?'p':'a'):apE;
+       const a=to24(tm[1],tm[2],null,apS),b=to24(tm[4],tm[5],a,apE);
+       cur={code,name,teacher:'',room:'',days:[...new Set(tail.days.length?tail.days:headingDays)],start:hhmm(a),end:hhmm(b)};
+       const inst=corInstructorLine(tail.rest);if(inst)cur.teacher=inst;
+       continue;
+     }
+   }
+   if(!cur){
+     const hd=lineDays(line);if(hd.length&&line.length<30)headingDays=hd;
      continue;
    }
-
-   if(!cur)continue;
-   // Wrapped descriptive title lines belong to the current course until the next
-   // course-code + time row. This is what keeps long PATHFIT titles intact.
-   if(!TIMERE.test(line) && !corCourseCode(line)){
-     if(/^(?:Mr|Mrs|Ms|Dr|Engr|Prof|Atty|Sir|Maam)\b/i.test(line)){
-       cur.teacher=cleanTeacher(line);continue;
-     }
-     if(/^\d+(?:\.\d+)?(?:\s+\d+(?:\.\d+)?){0,3}$/.test(line))continue;
-     if(/^(?:lec|lab|units?|instructor|room|bldg)\b/i.test(line))continue;
-     if(/^(?:SY|Course|Year|Printed|Certified|Total)/i.test(line))continue;
-     const d=corDays(line);
-     if(d.length && line.length<=12){if(!cur.days.length)cur.days=d;continue;}
-     // Don't append a room/day/unit-only token to the subject.
-     if(/^(?:PE\s*\d+|Soc\s+Sci\s*\d+|Room\s*\w+|Bldg\s*\w+)$/i.test(line)){
-       if(/^PE\s*\d+/i.test(line))cur.room=line;continue;
-     }
-     // A comma-separated surname is a likely instructor even without a title.
-     if(/^[A-Z][A-Za-z'’-]+,\s*[A-Z][A-Za-z.'’ -]+$/.test(line)){cur.teacher=cleanTeacher(line);continue;}
-     if(line.length<=140)cur.name=normalizeSubjectName((cur.name+" "+line).trim());
+   const inst=corInstructorLine(line);
+   if(inst){cur.teacher=inst;continue;}
+   if(/^(?:PE\s*\d+|Soc\s+Sci\s*\d+|Room\s*\w+|Bldg\s*\w+)$/i.test(line)){if(/^PE\s*\d+/i.test(line))cur.room=line;continue;}
+   if(/^\d+(?:\.\d+)?(?:\s+\d+(?:\.\d+)?){0,3}$/.test(line))continue;
+   const d=corDays(line);if(d.length&&line.length<=15){if(!cur.days.length)cur.days=d;continue;}
+   // When OCR splits a long subject across lines, append the continuation.
+   if(line.length<=160 && !/^(?:SY|Course|Year|Printed|Certified|Total|LUNCH|BACK\s*UP|WIFI)/i.test(line)){
+     cur.name=normalizeSubjectName((cur.name+' '+line).trim());
    }
  }
  flush();
  const out=[],seen=new Set();
  for(const r of rows){
-   const k=[r.code?.toLowerCase(),r.start,r.end,[...r.days].sort().join(",")].join("|");
+   const k=[r.code?.toLowerCase(),r.start,r.end,[...r.days].sort().join(',')].join('|');
    if(!seen.has(k)){seen.add(k);out.push(r);}
  }
  return out;
@@ -542,6 +567,83 @@ function looseScanRows(lines){
  }
  return out;
 }
+// Category-first parser: use the actual table headers (Description/Subject,
+// Instructor/Professor, Time, Day) as the source of truth. Course codes,
+// sections, units, rooms, etc. are intentionally ignored for the Subject field.
+function parseCategoryRows(lines){
+ const L=(lines||[]).map(l=>({
+  text:fixT(String(l.text||'').replace(/[|_\[\]]/g,' ').replace(/\s+/g,' ').trim()),
+  words:(l.words||[]).map(w=>({t:String(w.text||''),x:(w.bbox.x0+w.bbox.x1)/2,y0:w.bbox.y0,y1:w.bbox.y1,c:w.confidence})),
+  y0:l.bbox?.y0??0,y1:l.bbox?.y1??0
+ })).filter(x=>x.text);
+ if(!L.length)return[];
+ const header=findHeader(L); if(!header)return[];
+ const keys=header.keys;
+ const descX=keys.desc??keys.subj, instX=keys.inst, timeX=keys.time, dayX=keys.days;
+ if(descX==null||timeX==null)return[];
+ // Header columns are based only on the fields we actually want.
+ const wanted=[['desc',descX],['inst',instX],['time',timeX],['days',dayX]].filter(x=>x[1]!=null).sort((a,b)=>a[1]-b[1]);
+ const bounds=wanted.map((a,i)=>({key:a[0],x0:i?((wanted[i-1][1]+a[1])/2):-1e9,x1:i+1<wanted.length?((a[1]+wanted[i+1][1])/2):1e9}));
+ const colFor=x=>bounds.find(b=>x>=b.x0&&x<b.x1)?.key||null;
+ const headerY=header.line.y1||0;
+ const rows=[];
+ // Group OCR words into visual rows by their vertical center. This is more
+ // reliable than trusting Tesseract's text-line breaks when a long description wraps.
+ const words=L.flatMap(l=>l.words.map(w=>({...w,cy:(w.y0+w.y1)/2}))).filter(w=>okw(w));
+ const groups=[];
+ for(const w of words){
+   let g=groups.find(g=>Math.abs(g.cy-w.cy)<=Math.max(7,Math.min(18,(w.y1-w.y0)*.8)));
+   if(!g){g={cy:w.cy,words:[]};groups.push(g)}
+   g.words.push(w);g.cy=g.words.reduce((a,z)=>a+z.cy,0)/g.words.length;
+ }
+ groups.sort((a,b)=>a.cy-b.cy);
+ let cur=null,lastCy=null;
+ const cleanCell=x=>fixT(String(x||'').replace(/\s+/g,' ').trim());
+ const flush=()=>{
+   if(!cur)return;
+   let name=normalizeSubjectName(cur.desc||'');
+   // Explicitly strip leading course/section identifiers if OCR leaked them into Description.
+   name=name.replace(/^(?:GE|ELC|MSC|AC|PATHFIT)\s*[- ]?\s*[A-Z0-9]+(?:[-][A-Z0-9]+)?\s+/i,'').trim();
+   name=normalizeSubjectName(name);
+   if(name.length>=5&&cur.start&&cur.end&&cur.days.length){
+    rows.push({name,teacher:cleanTeacher(cur.inst||''),room:'',days:[...new Set(cur.days)],start:cur.start,end:cur.end,source:'category'});
+   }
+   cur=null;
+ };
+ for(const g of groups){
+   if(g.cy<=headerY+Math.max(20,(header.line.y1-header.line.y0)*2))continue;
+   const cells={desc:[],inst:[],time:[],days:[]};
+   for(const w of g.words){const k=colFor(w.x);if(k)cells[k].push(w.t)}
+   const desc=cleanCell(cells.desc.join(' ')), inst=cleanCell(cells.inst.join(' '));
+   const timeText=cleanCell(cells.time.join(' ')), dayText=cleanCell(cells.days.join(' '));
+   const tm=timeText.match(TIMERE);
+   const d=lineDays(dayText);
+   // Some tables encode days as M/TH, TF, MWF, etc. lineDays handles both.
+   if(tm){
+     flush();
+     const apE=tm[6]?(/p/i.test(tm[6])?'p':'a'):null;
+     const apS=tm[3]?(/p/i.test(tm[3])?'p':'a'):apE;
+     const a=to24(tm[1],tm[2],null,apS),b=to24(tm[4],tm[5],a,apE);
+     cur={desc,inst,start:hhmm(a),end:hhmm(b),days:d};
+     lastCy=g.cy;
+     continue;
+   }
+   // Wrapped description/instructor lines belong to the previous class if they
+   // contain no new time. Append only to the appropriate category.
+   if(cur&&lastCy!=null&&g.cy-lastCy<80){
+     if(desc)cur.desc=(cur.desc+' '+desc).trim();
+     if(inst)cur.inst=(cur.inst+' '+inst).trim();
+     if(d&&!cur.days.length)cur.days=d;
+     lastCy=g.cy;
+   }
+ }
+ flush();
+ // De-duplicate the same row produced by OCR grouping.
+ const out=[],seen=new Set();
+ for(const r of rows){const k=[r.name.toLowerCase(),r.start,r.end,r.days.slice().sort().join(',')].join('|');if(!seen.has(k)){seen.add(k);out.push(r)}}
+ return out;
+}
+
 function mergeScanRows(groups){
  const all=[];
  for(const rows of groups)for(const r of rows){
@@ -550,8 +652,9 @@ function mergeScanRows(groups){
  }
  // A dedicated COR parse is authoritative when it found rows. Generic table/OCR
  // passes can otherwise re-add malformed names such as "GE-GS Gender & Society".
+ const category=all.filter(r=>r.source==="category");
  const cor=all.filter(r=>r.source==="cor");
- const pool=cor.length>=2 ? cor : all;
+ const pool=category.length>=2 ? category : (cor.length>=2 ? cor : all);
  const byKey=new Map();
  for(const r of pool){
    const key=[normalizeSubjectName(r.name).toLowerCase().replace(/[^a-z0-9]+/g," ").trim(),r.start,r.end,[...r.days].sort().join(",")].join("|");
@@ -578,6 +681,7 @@ window.scanFile=async f=>{
    await w.setParameters({tessedit_pageseg_mode:passes[i][1],preserve_interword_spaces:"1"});
    const {data}=await w.recognize(passes[i][0]);
    const lines=getLines(data);
+   groups.push(parseCategoryRows(lines));
    groups.push(parseProgram(data.text,{lines}));
    groups.push(parseCORRows(lines));
    groups.push(looseScanRows(lines));
