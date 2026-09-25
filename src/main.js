@@ -110,7 +110,7 @@ function settings(){
  <div class="settinggroup"><h3>Appearance</h3><button class="setting" onclick="toggleTheme()"><span>◐</span><div><strong>Theme</strong><small>${data.theme==="light"?"Light":"Dark"}</small></div><b>›</b></button></div>
  <div class="settinggroup"><h3>Reminders</h3><button class="setting" onclick="toggleNotifications()"><span>🔔</span><div><strong>Notifications</strong><small>${data.notifications?"Enabled":"Disabled"}</small></div><b>${data.notifications?"ON":"OFF"}</b></button><label class="setting"><span>⏰</span><div><strong>Class reminder</strong><small>Before each class starts</small></div><select onchange="setClassRemind(this.value)">${[[0,"Off"],[5,"5 min"],[10,"10 min"],[15,"15 min"],[30,"30 min"]].map(o=>`<option value="${o[0]}" ${(data.classRemind??10)==o[0]?"selected":""}>${o[1]}</option>`).join("")}</select></label><button class="setting" onclick="openSound()"><span>🔊</span><div><strong>Notification sound</strong><small>${data.soundOn===false?"Off":data.sound&&data.sound!=="default"?prettyS(data.sound)+" · "+(data.soundDur||15)+" sec":"Phone default"}</small></div><b>›</b></button><button class="setting" onclick="testNotify()"><span>🧪</span><div><strong>Send test notification</strong><small>Arrives in 5 seconds</small></div><b>TEST</b></button></div>
  <div class="settinggroup"><h3>Help</h3><button class="setting" onclick="startTour()"><span>🎓</span><div><strong>Replay tutorial</strong><small>A quick guided tour of the app</small></div><b>›</b></button></div><div class="settinggroup"><h3>Backup</h3><button class="setting" onclick="openBackup()"><span>💾</span><div><strong>Backup &amp; restore</strong><small>Save or move your data</small></div><b>›</b></button></div><div class="settinggroup"><h3>Data</h3><button class="setting danger" onclick="resetData()"><span>↺</span><div><strong>Reset all data</strong><small>Remove subjects, classes and events</small></div><b>›</b></button></div>
- <p class="version">StudyFlow • 1.5.0</p></section>`;
+ <p class="version">StudyFlow • 1.6.0</p></section>`;
 }
 
 function modal(title,body){
@@ -387,7 +387,7 @@ window.parseProgram=function(text,data){
   if(!d.length){prev=null;continue}
   const apE=tm[6]?(/p/i.test(tm[6])?"p":"a"):null,apS=tm[3]?(/p/i.test(tm[3])?"p":"a"):apE;
   let a=to24(tm[1],tm[2],null,apS),b=to24(tm[4],tm[5],a,apE);
-  prev={name,teacher,room:"",days:[...d],start:hhmm(a),end:hhmm(b)};out.push(prev);pl=l;
+  prev={name,teacher,room:"",days:[...d],start:hhmm(a),end:hhmm(b),source:"program"};out.push(prev);pl=l;
  }
  return out;
 };
@@ -425,55 +425,90 @@ function corDays(s){
  const t=String(s||"").replace(/[^A-Za-z]/g,"").toUpperCase();
  if(!t)return[];
  if(t.includes("MON")||t.includes("TUE")||t.includes("WED")||t.includes("THU")||t.includes("FRI")||t.includes("SAT")||t.includes("SUN"))return lineDays(s);
- const out=[];
- // NEMSU-style compact COR codes: TF = Tue/Fri, MTH = Mon/Tue/Thu, MWF = Mon/Wed/Fri.
  const special={TF:["Tuesday","Friday"],MWF:["Monday","Wednesday","Friday"],MTH:["Monday","Tuesday","Thursday"],MT:["Monday","Tuesday"],MW:["Monday","Wednesday"],WF:["Wednesday","Friday"],TH:["Tuesday","Thursday"],TTH:["Tuesday","Thursday"],SA:["Saturday"],SU:["Sunday"]};
  if(special[t])return special[t];
- const re=/TH|SU|SA|M|T|W|F/g;let m;while((m=re.exec(t))){const d={M:"Monday",T:"Tuesday",W:"Wednesday",F:"Friday",TH:"Thursday",SA:"Saturday",SU:"Sunday"}[m[0]];if(d&&!out.includes(d))out.push(d)}
+ const out=[];const re=/TH|SU|SA|M|T|W|F/g;let m;
+ while((m=re.exec(t))){const d={M:"Monday",T:"Tuesday",W:"Wednesday",F:"Friday",TH:"Thursday",SA:"Saturday",SU:"Sunday"}[m[0]];if(d&&!out.includes(d))out.push(d)}
  return out;
 }
-function corCourseCode(line){
- const m=String(line||"").match(CORCODE);return m?m[0].replace(/\s+/g," ").trim():"";
+function corCourseCode(line){const m=String(line||"").match(CORCODE);return m?m[0]:"";}
+function corTitleFromLine(line,code,tm){
+ let left=String(line||"").slice(code.length,tm.index).replace(/\s+/g," ").trim();
+ // CORs normally put Section immediately after Course No. Remove it, but NEVER
+ // remove words from the descriptive title just because they look short.
+ left=left.replace(/^(?:IT\s*\d\s*[A-Z0-9]?)(?:\s+|$)/i,"").trim();
+ left=left.replace(/^\d{1,3}[A-Z]?\s+/i,"").trim();
+ return normalizeSubjectName(left);
+}
+function corTailInfo(after){
+ const m=String(after||"").match(/^\s*([A-Za-z]{1,12})(?:\s|$)/);
+ const days=m?corDays(m[1]):[];
+ return {days,rest:m?String(after).slice(m[0].length).trim():String(after||"").trim()};
 }
 function parseCORRows(lines){
- const L=(lines||[]).map(l=>({text:fixT(String(l.text||"").replace(/[|_\[\]]/g," ").replace(/\s+/g," ").trim()),y0:l.bbox?.y0??0,y1:l.bbox?.y1??0})).filter(x=>x.text);
+ const L=(lines||[]).map(l=>({
+   text:fixT(String(l.text||"").replace(/[|_\[\]]/g," ").replace(/\s+/g," ").trim()),
+   y0:l.bbox?.y0??0,y1:l.bbox?.y1??0
+ })).filter(x=>x.text);
  const rows=[];let cur=null;
- const flush=()=>{if(!cur)return;let name=normalizeSubjectName(cur.name);if(name.length>=5&&cur.start&&cur.end&&cur.days.length){rows.push({...cur,name});}cur=null};
+ const flush=()=>{
+   if(!cur)return;
+   cur.name=normalizeSubjectName(cur.name);
+   if(cur.name.length>=5&&cur.start&&cur.end&&cur.days.length){cur.source="cor";rows.push({...cur});}
+   cur=null;
+ };
  for(const l of L){
-  let line=l.text;
-  if(/^(course\s*no|section\s+descriptive|north\s+eastern|certificate\s+of\s+registration|note:|total\s+units|certified\s+by|printed\s+)/i.test(line))continue;
-  const code=corCourseCode(line);
-  const tm=line.match(TIMERE);
-  if(code&&tm){
-    flush();
-    let before=line.slice(tm.index).trim();
-    let left=line.slice(code.length,tm.index).trim();
-    left=left.replace(/^(?:IT\s*\d\s*[A-Z0-9]?\s*)/i,"").trim();
-    left=left.replace(/\s{2,}/g," ");
-    const after=line.slice(tm.index+tm[0].length).trim();
-    const dm=after.match(/^([A-Za-z]{1,10})(?=\s|$)/);
-    const days=corDays(dm?dm[1]:"");
-    const apE=tm[6]?(/p/i.test(tm[6])?"p":"a"):null,apS=tm[3]?(/p/i.test(tm[3])?"p":"a"):apE;
-    const a=to24(tm[1],tm[2],null,apS),b=to24(tm[4],tm[5],a,apE);
-    cur={code,name:left,teacher:"",room:"",days:[...new Set(days)],start:hhmm(a),end:hhmm(b)};
-    // Keep OCR tail only as a possible instructor/room; do not let units become the subject.
-    continue;
-  }
-  // A wrapped COR title line (PATHFIT is commonly two lines).
-  if(cur&&!tm&&!code){
-    if(/^(?:\d+(?:\.\d+)?|[A-Z]{1,3}\s*\d+(?:\.\d+)?|lec|lab|units?|instructor|room|bldg)$/i.test(line))continue;
-    const d=corDays(line);
-    if(d.length&&line.length<=12) { if(!cur.days.length)cur.days=d; continue; }
-    // If the line looks like a teacher/room/unit tail, leave it out of the title.
-    if(/^\d+(?:\.\d+)?\s+\d+(?:\.\d+)?(?:\s+\d+(?:\.\d+)?)?/i.test(line))continue;
-    if(/^(?:Mr|Mrs|Ms|Dr|Engr|Prof|Atty|Sir|Maam)\b/i.test(line)) {cur.teacher=cleanTeacher(line);continue;}
-    if(cur.name && line.length<80 && !/^(?:SY|Course|Year|Printed|Certified)/i.test(line))cur.name=(cur.name+" "+line).trim();
-  }
+   const line=l.text;
+   if(!line)continue;
+   if(/^(course\s*no|section\s+descriptive|north\s+eastern|certificate\s+of\s+registration|note:|total\s+units|certified\s+by|printed\s+)/i.test(line))continue;
+
+   const code=corCourseCode(line);
+   const tm=line.match(TIMERE);
+   if(code&&tm){
+     flush();
+     const name=corTitleFromLine(line,code,tm);
+     const after=line.slice(tm.index+tm[0].length).trim();
+     const tail=corTailInfo(after);
+     const apE=tm[6]?(/p/i.test(tm[6])?"p":"a"):null;
+     const apS=tm[3]?(/p/i.test(tm[3])?"p":"a"):apE;
+     const a=to24(tm[1],tm[2],null,apS),b=to24(tm[4],tm[5],a,apE);
+     cur={code,name,teacher:"",room:"",days:[...new Set(tail.days)],start:hhmm(a),end:hhmm(b)};
+     // If OCR placed the instructor immediately after the day code, capture it.
+     const possible=tail.rest;
+     if(possible && !/^\d+(?:\.\d+)?(?:\s+\d+(?:\.\d+)?){0,2}$/.test(possible)){
+       const inst=possible.match(TEACH);
+       if(inst)cur.teacher=cleanTeacher(inst[1]);
+     }
+     continue;
+   }
+
+   if(!cur)continue;
+   // Wrapped descriptive title lines belong to the current course until the next
+   // course-code + time row. This is what keeps long PATHFIT titles intact.
+   if(!TIMERE.test(line) && !corCourseCode(line)){
+     if(/^(?:Mr|Mrs|Ms|Dr|Engr|Prof|Atty|Sir|Maam)\b/i.test(line)){
+       cur.teacher=cleanTeacher(line);continue;
+     }
+     if(/^\d+(?:\.\d+)?(?:\s+\d+(?:\.\d+)?){0,3}$/.test(line))continue;
+     if(/^(?:lec|lab|units?|instructor|room|bldg)\b/i.test(line))continue;
+     if(/^(?:SY|Course|Year|Printed|Certified|Total)/i.test(line))continue;
+     const d=corDays(line);
+     if(d.length && line.length<=12){if(!cur.days.length)cur.days=d;continue;}
+     // Don't append a room/day/unit-only token to the subject.
+     if(/^(?:PE\s*\d+|Soc\s+Sci\s*\d+|Room\s*\w+|Bldg\s*\w+)$/i.test(line)){
+       if(/^PE\s*\d+/i.test(line))cur.room=line;continue;
+     }
+     // A comma-separated surname is a likely instructor even without a title.
+     if(/^[A-Z][A-Za-z'’-]+,\s*[A-Z][A-Za-z.'’ -]+$/.test(line)){cur.teacher=cleanTeacher(line);continue;}
+     if(line.length<=140)cur.name=normalizeSubjectName((cur.name+" "+line).trim());
+   }
  }
  flush();
- // Remove accidental duplicate rows while preserving distinct courses with the same time.
  const out=[],seen=new Set();
- for(const r of rows){const k=[normalizeSubjectName(r.name).toLowerCase(),r.start,r.end,[...r.days].sort().join(",")].join("|");if(!seen.has(k)){seen.add(k);out.push(r)}}
+ for(const r of rows){
+   const k=[r.code?.toLowerCase(),r.start,r.end,[...r.days].sort().join(",")].join("|");
+   if(!seen.has(k)){seen.add(k);out.push(r);}
+ }
  return out;
 }
 
@@ -503,20 +538,29 @@ function looseScanRows(lines){
   if(!s||s.length<5)continue;
   const apE=tm[6]?(/p/i.test(tm[6])?"p":"a"):null,apS=tm[3]?(/p/i.test(tm[3])?"p":"a"):apE;
   const a=to24(tm[1],tm[2],null,apS),b=to24(tm[4],tm[5],a,apE);
-  out.push({name:s,teacher,room:"",days:[...new Set(days)],start:hhmm(a),end:hhmm(b)});
+  out.push({name:s,teacher,room:"",days:[...new Set(days)],start:hhmm(a),end:hhmm(b),source:"loose"});
  }
  return out;
 }
 function mergeScanRows(groups){
- const all=[];for(const rows of groups)for(const r of rows){
-  const name=normalizeSubjectName(r.name);if(!name||name.length<5||!r.days?.length||!r.start||!r.end)continue;
-  const key=[name.toLowerCase().replace(/[^a-z0-9]+/g," ").trim(),r.start,r.end,[...r.days].sort().join(",")].join("|");
-  if(!all.some(x=>[normalizeSubjectName(x.name).toLowerCase().replace(/[^a-z0-9]+/g," ").trim(),x.start,x.end,[...x.days].sort().join(",")].join("|")===key))all.push({...r,name});
+ const all=[];
+ for(const rows of groups)for(const r of rows){
+   const name=normalizeSubjectName(r.name);if(!name||name.length<5||!r.days?.length||!r.start||!r.end)continue;
+   all.push({...r,name});
  }
- // Prefer the cleaner teacher/name when multiple OCR passes found the same class.
- const byKey=new Map();for(const r of all){const key=[normalizeSubjectName(r.name).toLowerCase().replace(/[^a-z0-9]+/g," ").trim(),r.start,r.end,[...r.days].sort().join(",")].join("|");const old=byKey.get(key);if(!old||((r.teacher||"").length>(old.teacher||"").length))byKey.set(key,r)}
+ // A dedicated COR parse is authoritative when it found rows. Generic table/OCR
+ // passes can otherwise re-add malformed names such as "GE-GS Gender & Society".
+ const cor=all.filter(r=>r.source==="cor");
+ const pool=cor.length>=2 ? cor : all;
+ const byKey=new Map();
+ for(const r of pool){
+   const key=[normalizeSubjectName(r.name).toLowerCase().replace(/[^a-z0-9]+/g," ").trim(),r.start,r.end,[...r.days].sort().join(",")].join("|");
+   const old=byKey.get(key);
+   if(!old || ((r.teacher||"").length>(old.teacher||"").length) || (r.source==="cor"&&old.source!=="cor"))byKey.set(key,r);
+ }
  return [...byKey.values()];
 }
+
 window.scanFile=async f=>{
  if(!f)return;const st=document.querySelector("#scanstat"),bar=p=>{document.querySelector("#scanprog").classList.add("on");document.querySelector("#scanbar").style.width=p+"%"};
  try{
