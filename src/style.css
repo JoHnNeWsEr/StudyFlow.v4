@@ -233,3 +233,14 @@ html[data-theme="dark"] .top::before,html[data-theme="dark"] .top::after,html[da
 .historyfull .goalhistoryitem:last-child{margin-bottom:0}
 html[data-theme="dark"] .historydialog,html[data-theme="midnight"] .historydialog,html[data-theme="ocean"] .historydialog,html[data-theme="forest"] .historydialog,html[data-theme="sunset"] .historydialog,html[data-theme="rose"] .historydialog,html[data-theme="minimal"] .historydialog{background:var(--card,#151515);border-color:var(--line,#303030)}
 @media(max-width:380px){.historyoverlay{padding:12px}.historydialog{border-radius:20px;padding:15px}}
+
+/* v39 theme-aware action buttons: Add Subject / Class / Event and page actions follow the selected theme */
+html[data-theme="light"] .primary,html[data-theme="light"] .empty button{background:#6a49f5;color:#fff}html[data-theme="light"] .pagehead .primary{box-shadow:0 7px 18px rgba(106,73,245,.22)}
+html[data-theme="dark"] .primary,html[data-theme="dark"] .empty button{background:#fff;color:#111}html[data-theme="dark"] .pagehead .primary{box-shadow:0 7px 18px rgba(0,0,0,.28)}
+html[data-theme="midnight"] .primary,html[data-theme="midnight"] .empty button{background:#a58bff;color:#17121f}html[data-theme="midnight"] .pagehead .primary{box-shadow:0 7px 18px rgba(85,65,150,.3)}
+html[data-theme="ocean"] .primary,html[data-theme="ocean"] .empty button{background:#39bde8;color:#07151d}html[data-theme="ocean"] .pagehead .primary{box-shadow:0 7px 18px rgba(26,150,190,.26)}
+html[data-theme="forest"] .primary,html[data-theme="forest"] .empty button{background:#48d69a;color:#07170f}html[data-theme="forest"] .pagehead .primary{box-shadow:0 7px 18px rgba(40,155,105,.25)}
+html[data-theme="sunset"] .primary,html[data-theme="sunset"] .empty button{background:#ffad55;color:#211006}html[data-theme="sunset"] .pagehead .primary{box-shadow:0 7px 18px rgba(190,88,35,.25)}
+html[data-theme="rose"] .primary,html[data-theme="rose"] .empty button{background:#f06aa9;color:#230b17}html[data-theme="rose"] .pagehead .primary{box-shadow:0 7px 18px rgba(190,60,125,.25)}
+html[data-theme="minimal"] .primary,html[data-theme="minimal"] .empty button{background:#fff;color:#000}html[data-theme="minimal"] .pagehead .primary{box-shadow:0 7px 18px rgba(255,255,255,.12)}
+html[data-theme="dark"] .daytitle button,html[data-theme="midnight"] .daytitle button,html[data-theme="ocean"] .daytitle button,html[data-theme="forest"] .daytitle button,html[data-theme="sunset"] .daytitle button,html[data-theme="rose"] .daytitle button,html[data-theme="minimal"] .daytitle button{color:var(--accent,#a58bff)}

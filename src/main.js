@@ -213,7 +213,7 @@ function settings(){
  <div class="settinggroup"><h3>Reminders</h3><button class="setting notification-setting" onclick="toggleNotifications()"><span>🔔</span><div><strong>Notifications</strong><small>${data.notifications?"Enabled":"Disabled"}</small></div><b>${data.notifications?"ON":"OFF"}</b></button><label class="setting class-reminder-setting"><span>⏰</span><div><strong>Class reminder</strong><small>Before each class starts</small></div><select onchange="setClassRemind(this.value)">${[[0,"Off"],[5,"5 min"],[10,"10 min"],[15,"15 min"],[20,"20 min"],[30,"30 min"]].map(o=>`<option value="${o[0]}" ${(data.classRemind??10)==o[0]?"selected":""}>${o[1]}</option>`).join("")}</select></label><button class="setting sound-setting" onclick="openSound()"><span>🔊</span><div><strong>Notification sound</strong><small>${data.soundOn===false?"Off":data.sound&&data.sound!=="default"?prettyS(data.sound)+" · "+(data.soundDur||15)+" sec":"Phone default"}</small></div><b>›</b></button><button class="setting test-notification-setting" onclick="testNotify()"><span>🧪</span><div><strong>Send test notification</strong><small>Arrives in 5 seconds</small></div><b>TEST</b></button></div>
  <div class="settinggroup"><h3>Study tools</h3><button class="setting" onclick="openNotes()"><span>🗒️</span><div><strong>Notes</strong><small>${data.notes.length} saved note${data.notes.length===1?"":"s"}</small></div><b>›</b></button><button class="setting focus-setting" onclick="openGoals()"><span>🎯</span><div><strong>Study goals & focus</strong><small>${data.goals.filter(g=>!g.done).length} active goal${data.goals.filter(g=>!g.done).length===1?"":"s"} · Pomodoro</small></div><b>›</b></button><button class="setting" onclick="openSemester()"><span>🗃️</span><div><strong>Semester</strong><small>${esc(data.semester.name)} · ${esc(data.semester.schoolYear)}</small></div><b>›</b></button></div>
  <div class="settinggroup"><h3>Help</h3><button class="setting" onclick="startTour()"><span>🎓</span><div><strong>Replay tutorial</strong><small>A quick guided tour of the app</small></div><b>›</b></button></div><div class="settinggroup"><h3>Backup</h3><button class="setting backup-setting" onclick="openBackup()"><span>💾</span><div><strong>Backup &amp; restore</strong><small>Save or move your data</small></div><b>›</b></button></div><div class="settinggroup"><h3>Data</h3><button class="setting danger" onclick="resetData()"><span>↺</span><div><strong>Reset all data</strong><small>Remove subjects, classes and events</small></div><b>›</b></button></div>
- <p class="version">StudyFlow • v37</p></section>`;
+ <p class="version">StudyFlow • v39</p></section>`;
 }
 
 function modal(title,body){
@@ -426,21 +426,18 @@ syncNotifications();
 
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)syncNotifications()});
 
-// ---------- Guided tutorial (v37: rebuilt positioning and targets) ----------
+// ---------- Guided tutorial (v39: true first-open walkthrough) ----------
 const STEPS=[
- {t:"Welcome to StudyFlow 👋",d:"A quick tour of the parts you will use most. Each tip highlights the exact area it is describing."},
- {v:"home",sel:".hgrid",place:"header-below",t:"Your StudyFlow header",d:"This is your profile and quick-add area. The highlight stays on the header, while this guide card is placed underneath it."},
- {v:"home",sel:".hero",place:"above",t:"Today at a glance",d:"See today's date and your current semester at a glance."},
- {v:"home",sel:".studygoalpanel",t:"Study & Goals",d:"Your unfinished study goals appear here. Mark one complete with the check circle when you finish it."},
- {v:"home",sel:".studygoalpanel .inlinefocus",t:"Focus one goal",d:"Tap Focus beside a goal to start a timer attached to that exact goal. The live countdown appears beside it."},
- {v:"subjects",sel:".pagehead .primary",t:"Add your subjects",d:"Create a subject with its teacher and room. You can reuse it when building your class schedule."},
- {v:"schedule",sel:".daystrip",t:"Weekly schedule",d:"Choose a day to see its classes. Add classes with the button at the top of the Schedule page."},
- {v:"events",sel:".pagehead .primary",t:"Events and deadlines",d:"Add quizzes, exams, assignments and other tasks with dates, times and reminders."},
- {v:"events",sel:".eventcard:not(.done) .inlinefocus",t:"Focus a task",d:"If an unfinished event has a Focus button, use it to attach the timer to that specific task."},
- {v:"settings",sel:".class-reminder-setting",t:"Class reminders",d:"Choose Off, 5, 10, 15, 20 or 30 minutes before class. Android schedules the reminder for you."},
- {v:"settings",sel:".theme-setting",t:"Change the look",d:"Open Theme to choose Light, Dark, Midnight, Ocean, Forest, Sunset, Rose or Minimal. The header changes with the selected theme too."},
- {v:"settings",sel:".backup-setting",t:"Backup & restore",d:"Save your StudyFlow data as a backup and restore it later when you need it."},
- {t:"You're all set! 🎉",d:"You can replay this tutorial anytime from Settings → Replay tutorial."}
+ {t:"Welcome to StudyFlow 👋",d:"Let’s set up your StudyFlow from the beginning. This tour is designed for a new user with no subjects, classes, events or goals yet."},
+ {v:"home",sel:".hgrid",place:"header-below",t:"Your StudyFlow header",d:"This is your profile and quick-add area. The guide card stays underneath the header so it never covers what it is showing."},
+ {v:"subjects",sel:[".empty button",".pagehead .primary"],t:"Step 1 — Add your first subject",d:"Start by adding a subject. You can enter its name, teacher, room and class days, then reuse it throughout StudyFlow."},
+ {v:"schedule",sel:[".empty button",".pagehead .primary"],t:"Step 2 — Add your first class",d:"Build your weekly schedule by adding a class. Choose the subject, day and start/end time."},
+ {v:"events",sel:[".empty button",".pagehead .primary"],t:"Step 3 — Add your first event",d:"Add a quiz, exam, oral, project, assignment or other deadline. You can also set a reminder."},
+ {v:"home",sel:'.sectionhead button[onclick="openGoals()"]',t:"Step 4 — Create a study goal",d:"Open Study & Goals to create your first goal. Goals help you track what you want to finish."},
+ {v:"settings",sel:".class-reminder-setting",t:"Step 5 — Set class reminders",d:"Choose Off, 5, 10, 15, 20 or 30 minutes before class. StudyFlow schedules the Android notification for you."},
+ {v:"settings",sel:".theme-setting",t:"Step 6 — Choose your theme",d:"Pick Light, Dark, Midnight, Ocean, Forest, Sunset, Rose or Minimal. The app header and action buttons follow the selected theme."},
+ {v:"settings",sel:".backup-setting",t:"Step 7 — Keep your data safe",d:"Backup & Restore lets you save or move your StudyFlow data so you can restore it later."},
+ {t:"You’re ready! 🎉",d:"Start by adding your first subject, then your class, event and study goal. You can replay this tutorial anytime from Settings."}
 ];
 let tourI=0;
 function tourEl(){return document.getElementById("tour")}
