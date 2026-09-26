@@ -192,11 +192,11 @@ function subjects(){
 function settings(){
  return `<section class="page"><div class="pagehead"><div><span class="muted">PREFERENCES</span><h2>Settings</h2></div></div>
  <div class="settinggroup"><h3>Profile</h3><button class="setting" onclick="profile()"><span>${data.profile.photo?`<img class="pthumb" src="${data.profile.photo}" alt="">`:"👤"}</span><div><strong>${esc(data.profile.name||"Your profile")}</strong><small>${esc(data.profile.school||"Add your school information")}</small></div><b>›</b></button></div>
- <div class="settinggroup"><h3>Appearance</h3><button class="setting" onclick="openThemes()"><span>◐</span><div><strong>Theme</strong><small>${themeName(data.theme)}</small></div><b>›</b></button></div>
- <div class="settinggroup"><h3>Reminders</h3><button class="setting" onclick="toggleNotifications()"><span>🔔</span><div><strong>Notifications</strong><small>${data.notifications?"Enabled":"Disabled"}</small></div><b>${data.notifications?"ON":"OFF"}</b></button><label class="setting"><span>⏰</span><div><strong>Class reminder</strong><small>Before each class starts</small></div><select onchange="setClassRemind(this.value)">${[[0,"Off"],[5,"5 min"],[10,"10 min"],[15,"15 min"],[20,"20 min"],[30,"30 min"]].map(o=>`<option value="${o[0]}" ${(data.classRemind??10)==o[0]?"selected":""}>${o[1]}</option>`).join("")}</select></label><button class="setting" onclick="openSound()"><span>🔊</span><div><strong>Notification sound</strong><small>${data.soundOn===false?"Off":data.sound&&data.sound!=="default"?prettyS(data.sound)+" · "+(data.soundDur||15)+" sec":"Phone default"}</small></div><b>›</b></button><button class="setting" onclick="testNotify()"><span>🧪</span><div><strong>Send test notification</strong><small>Arrives in 5 seconds</small></div><b>TEST</b></button></div>
- <div class="settinggroup"><h3>Study tools</h3><button class="setting" onclick="openNotes()"><span>🗒️</span><div><strong>Notes</strong><small>${data.notes.length} saved note${data.notes.length===1?"":"s"}</small></div><b>›</b></button><button class="setting" onclick="openGoals()"><span>🎯</span><div><strong>Study goals & focus</strong><small>${data.goals.filter(g=>!g.done).length} active goal${data.goals.filter(g=>!g.done).length===1?"":"s"} · Pomodoro</small></div><b>›</b></button><button class="setting" onclick="openSemester()"><span>🗃️</span><div><strong>Semester</strong><small>${esc(data.semester.name)} · ${esc(data.semester.schoolYear)}</small></div><b>›</b></button></div>
- <div class="settinggroup"><h3>Help</h3><button class="setting" onclick="startTour()"><span>🎓</span><div><strong>Replay tutorial</strong><small>A quick guided tour of the app</small></div><b>›</b></button></div><div class="settinggroup"><h3>Backup</h3><button class="setting" onclick="openBackup()"><span>💾</span><div><strong>Backup &amp; restore</strong><small>Save or move your data</small></div><b>›</b></button></div><div class="settinggroup"><h3>Data</h3><button class="setting danger" onclick="resetData()"><span>↺</span><div><strong>Reset all data</strong><small>Remove subjects, classes and events</small></div><b>›</b></button></div>
- <p class="version">StudyFlow • v33</p></section>`;
+ <div class="settinggroup"><h3>Appearance</h3><button class="setting theme-setting" onclick="openThemes()"><span>◐</span><div><strong>Theme</strong><small>${themeName(data.theme)}</small></div><b>›</b></button></div>
+ <div class="settinggroup"><h3>Reminders</h3><button class="setting notification-setting" onclick="toggleNotifications()"><span>🔔</span><div><strong>Notifications</strong><small>${data.notifications?"Enabled":"Disabled"}</small></div><b>${data.notifications?"ON":"OFF"}</b></button><label class="setting class-reminder-setting"><span>⏰</span><div><strong>Class reminder</strong><small>Before each class starts</small></div><select onchange="setClassRemind(this.value)">${[[0,"Off"],[5,"5 min"],[10,"10 min"],[15,"15 min"],[20,"20 min"],[30,"30 min"]].map(o=>`<option value="${o[0]}" ${(data.classRemind??10)==o[0]?"selected":""}>${o[1]}</option>`).join("")}</select></label><button class="setting sound-setting" onclick="openSound()"><span>🔊</span><div><strong>Notification sound</strong><small>${data.soundOn===false?"Off":data.sound&&data.sound!=="default"?prettyS(data.sound)+" · "+(data.soundDur||15)+" sec":"Phone default"}</small></div><b>›</b></button><button class="setting test-notification-setting" onclick="testNotify()"><span>🧪</span><div><strong>Send test notification</strong><small>Arrives in 5 seconds</small></div><b>TEST</b></button></div>
+ <div class="settinggroup"><h3>Study tools</h3><button class="setting" onclick="openNotes()"><span>🗒️</span><div><strong>Notes</strong><small>${data.notes.length} saved note${data.notes.length===1?"":"s"}</small></div><b>›</b></button><button class="setting focus-setting" onclick="openGoals()"><span>🎯</span><div><strong>Study goals & focus</strong><small>${data.goals.filter(g=>!g.done).length} active goal${data.goals.filter(g=>!g.done).length===1?"":"s"} · Pomodoro</small></div><b>›</b></button><button class="setting" onclick="openSemester()"><span>🗃️</span><div><strong>Semester</strong><small>${esc(data.semester.name)} · ${esc(data.semester.schoolYear)}</small></div><b>›</b></button></div>
+ <div class="settinggroup"><h3>Help</h3><button class="setting" onclick="startTour()"><span>🎓</span><div><strong>Replay tutorial</strong><small>A quick guided tour of the app</small></div><b>›</b></button></div><div class="settinggroup"><h3>Backup</h3><button class="setting backup-setting" onclick="openBackup()"><span>💾</span><div><strong>Backup &amp; restore</strong><small>Save or move your data</small></div><b>›</b></button></div><div class="settinggroup"><h3>Data</h3><button class="setting danger" onclick="resetData()"><span>↺</span><div><strong>Reset all data</strong><small>Remove subjects, classes and events</small></div><b>›</b></button></div>
+ <p class="version">StudyFlow • v34</p></section>`;
 }
 
 function modal(title,body){
@@ -400,17 +400,19 @@ document.addEventListener("visibilitychange",()=>{if(!document.hidden)syncNotifi
 
 // ---------- First-run guided tour (spotlight) ----------
 const STEPS=[
- {t:"Welcome to StudyFlow 👋",d:"This guide is updated with the latest StudyFlow features. It appears when you start the app, and you can also replay it from Settings."},
- {v:"home",sel:".top",t:"Your day at a glance",d:"Home shows today's classes, progress and your Study & Goals card. Tap your photo circle to add a profile picture."},
- {v:"home",sel:".studygoalpanel",t:"Study & Goals",d:"Your goals live here. Use the check circle to mark a goal done, or tap Focus beside a goal to start a timer for that specific goal."},
- {v:"home",sel:".studygoalpanel",t:"Live Focus timer",d:"When a Focus session is running, its live countdown appears beside the exact goal you selected. This step highlights the whole goal area so it still works when no goal is currently active."},
- {v:"subjects",sel:".pagehead .primary",t:"Subjects",d:"Type the name, teacher and room once, then pick the days and times. StudyFlow reuses the subject in your schedule."},
- {v:"schedule",sel:".daystrip",t:"Your weekly schedule",d:"Tap a day to see its classes. Use ＋ Class to add or edit your schedule."},
- {v:"events",sel:".pagehead .primary",t:"Quizzes, exams & tasks",d:"Add events with dates, times and reminders. Tap the centered check circle to mark one done; the button gives a small push/bounce animation."},
- {v:"events",sel:[".eventcard:not(.done)",".eventcard",".pagehead"],t:"Focus a specific task",d:"Tap ⏱ beside an unfinished task to attach a Focus session to that exact task. The countdown stays visible beside it."},
- {v:"settings",sel:'[onclick="toggleNotifications()"]',t:"Notifications",d:"Enable notifications, choose reminder timing and sound, and use Send test notification to confirm your phone can receive StudyFlow alerts."},
- {v:"settings",sel:'[onclick="openGoals()"]',t:"Focus keeps running",d:"Focus uses a real end time, so leaving StudyFlow, opening another app, minimizing it or closing it will not reset the session. Android sends the completion notification when the time is reached."},
- {v:"settings",sel:'[onclick="openBackup()"]',t:"Keep your data safe",d:"Backup & restore lets you save your subjects, classes, events, goals and other StudyFlow data so you can restore them later."},
+ {t:"Welcome to StudyFlow 👋",d:"This guide walks you through the main features of StudyFlow. You can replay it anytime from Settings."},
+ {v:"home",sel:".top",t:"Your day at a glance",d:"This header gives you a quick view of your day and your profile. Tap your photo circle to add a profile picture."},
+ {v:"home",sel:".studygoalpanel",t:"Study & Goals",d:"Your study goals live here. Use the check circle to mark a goal complete, or use Focus beside a goal to start a timer for that goal."},
+ {v:"home",sel:[".studygoalpanel .inlinefocus",".studygoalpanel"],t:"Focus a specific goal",d:"Use the Focus button beside a goal to attach the timer to that exact goal. When it is running, the live countdown appears there."},
+ {v:"subjects",sel:".pagehead .primary",t:"Add your subjects",d:"Add a subject once with its teacher and room. StudyFlow can then reuse it throughout your schedule."},
+ {v:"schedule",sel:".daystrip",t:"Your weekly schedule",d:"Choose a day here to view that day's classes. Use ＋ Class to add a class."},
+ {v:"events",sel:".pagehead .primary",t:"Quizzes, exams & tasks",d:"Add quizzes, exams, assignments and other tasks with dates, times and reminders."},
+ {v:"events",sel:[".eventcard:not(.done) .inlinefocus",".eventcard:not(.done)",".eventcard",".pagehead .primary"],t:"Focus a specific task",d:"Use the ⏱ button on an unfinished event to attach Focus to that exact task."},
+ {v:"settings",sel:".notification-setting",t:"Notifications",d:"Turn StudyFlow notifications on or off here."},
+ {v:"settings",sel:".class-reminder-setting",t:"Class reminders",d:"Choose whether StudyFlow reminds you 5, 10, 15, 20 or 30 minutes before each class."},
+ {v:"settings",sel:".theme-setting",t:"Appearance & themes",d:"Choose Light, Dark, Midnight, Ocean, Forest, Sunset, Rose or Minimal. Your choice is saved."},
+ {v:"settings",sel:".focus-setting",t:"Focus keeps running",d:"Focus uses a real end time, so leaving StudyFlow or switching apps does not reset the session."},
+ {v:"settings",sel:".backup-setting",t:"Keep your data safe",d:"Backup & restore lets you save your StudyFlow data and restore it later."},
  {t:"You're all set! 🎉",d:"Start with a subject, add your schedule and set your first study goal. You can replay this guide from Settings anytime."}
 ]
 let tourI=0;
@@ -447,19 +449,29 @@ function showStep(first=false){
   t.querySelector(".tcount").textContent=(tourI+1)+"/"+STEPS.length;
   t.querySelector(".tback").style.visibility=tourI?"visible":"hidden";
   t.querySelector(".tnext").textContent=tourI>=STEPS.length-1?"Done":"Next";
-  tip.style.top=tip.style.bottom="";
+  tip.style.top="";tip.style.bottom="";
   if(el){
    el.scrollIntoView({block:"center",behavior:"smooth"});
    setTimeout(()=>{
     const r=el.getBoundingClientRect(),p=8;
     Object.assign(spot.style,{display:"block",left:Math.max(6,r.left-p)+"px",top:Math.max(6,r.top-p)+"px",width:r.width+2*p+"px",height:r.height+2*p+"px"});
-    tip.style.top=tip.style.bottom="";
-    const tipH=tip.offsetHeight||150;
-    if(r.top+r.height/2>innerHeight/2){tip.style.bottom=Math.max(18,innerHeight-r.top+18)+"px";}else{tip.style.top=Math.min(innerHeight-tipH-18,r.bottom+18)+"px";}
+    // Keep the guide card in a readable, safe area. In particular, top-of-screen targets always get the card beneath them.
+    const tipH=tip.offsetHeight||170, gap=16, safeTop=12, safeBottom=innerHeight-12;
+    const spaceBelow=safeBottom-(r.bottom+p);
+    const spaceAbove=(r.top-p)-safeTop;
+    let top;
+    if(r.top<140 && spaceBelow>=tipH) top=r.bottom+p+gap;
+    else if(spaceBelow>=tipH) top=r.bottom+p+gap;
+    else if(spaceAbove>=tipH) top=r.top-p-gap-tipH;
+    else top=Math.max(safeTop,Math.min(safeBottom-tipH,(innerHeight-tipH)/2));
+    top=Math.max(safeTop,Math.min(safeBottom-tipH,top));
+    tip.style.top=top+"px";
     t.classList.add("tour-step-in");
-   },260);
+   },360);
   }else{
-   spot.style.display="none";tip.style.top=Math.max(40,innerHeight/2-110)+"px";
+   spot.style.display="none";
+   const tipH=tip.offsetHeight||170;
+   tip.style.top=Math.max(12,(innerHeight-tipH)/2)+"px";
    t.classList.add("tour-step-in");
   }
  };
@@ -467,9 +479,9 @@ function showStep(first=false){
  if(st.v&&view!==st.v){
   view=st.v;
   shell();
-  setTimeout(position,220);
+  setTimeout(position,300);
  }else{
-  requestAnimationFrame(position);
+  requestAnimationFrame(()=>setTimeout(position,40));
  }
 }
 if(!data.tourDone)setTimeout(()=>startTour(),1900);
