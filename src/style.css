@@ -260,3 +260,5 @@ html[data-theme="dark"] .historydialog,html[data-theme="midnight"] .historydialo
 .studygoalstat{border-color:var(--line,#e7e5ef)}
 .studyggoalpanel .progressbar{background:var(--accent-soft)}
 .studyggoalpanel .progressbar span{background:var(--accent);box-shadow:0 0 10px color-mix(in srgb,var(--accent) 28%,transparent)}
+
+.goalstartchoice{display:flex;align-items:center;gap:9px;font-size:13px!important;font-weight:700!important;color:#555}.goalstartchoice input{display:inline-block;width:18px;height:18px;margin:0;accent-color:var(--accent,#6a49f5)}

@@ -149,9 +149,12 @@ function home(){
  let studyProgress=totalGoals?Math.round((completedGoals/totalGoals)*100):0;
  let upcoming=upcomingEvents();
  const goalRows=activeGoals.map(g=>({g,done:false}));
+ const storedFocus=readFocus();
+ const liveEndAt=storedFocus?.running&&storedFocus?.endAt?Number(storedFocus.endAt):focusEndAt;
+ const liveTarget=storedFocus?.running&&storedFocus?.target?storedFocus.target:focusTarget;
  const goalMarkup=goalRows.map(({g,done})=>{
-  const activeFocus=!done&&focusEndAt&&focusTarget?.type==="goal"&&focusTarget.id===g.id;
-  return `<div class="goalmini ${done?"done":""}" data-id="${g.id}"><div class="grow"><strong>${done?"✓":"🎯"} ${esc(g.title)}</strong><span>${done?"Completed"+(g.target?" · "+esc(g.target):""):esc(g.target||"Keep going")}</span></div>${!done?`<button class="inlinefocus ${activeFocus?"running":""}" onclick="openFocus('goal','${g.id}')">${activeFocus?`<span class="focusdot"></span><span>${formatFocus(Math.max(0,Math.ceil((focusEndAt-Date.now())/1000)))}</span>`:"⏱ Focus"}</button>`:""}<button class="chk goalcheck ${done?"on":""}" aria-label="${done?"Mark goal active":"Mark goal complete"}" onclick="toggleGoal('${g.id}',this)"><span class="burst"></span><svg viewBox="0 0 24 24"><path d="M5 12l4.5 4.5L19 7.5"/></svg></button></div>`;
+  const activeFocus=!done&&liveEndAt&&liveTarget?.type==="goal"&&liveTarget.id===g.id;
+  return `<div class="goalmini ${done?"done":""}" data-id="${g.id}"><div class="grow"><strong>${done?"✓":"🎯"} ${esc(g.title)}</strong><span>${done?"Completed"+(g.target?" · "+esc(g.target):""):esc(g.target||"Keep going")}</span></div>${!done?`<button class="inlinefocus ${activeFocus?"running":""}" onclick="openFocus('goal','${g.id}')">${activeFocus?`<span class="focusdot"></span><span>${formatFocus(Math.max(0,Math.ceil((liveEndAt-Date.now())/1000)))}</span>`:"⏱ Focus"}</button>`:""}<button class="chk goalcheck ${done?"on":""}" aria-label="${done?"Mark goal active":"Mark goal complete"}" onclick="toggleGoal('${g.id}',this)"><span class="burst"></span><svg viewBox="0 0 24 24"><path d="M5 12l4.5 4.5L19 7.5"/></svg></button></div>`;
  }).join("");
  return `<section class="page">
   <div class="hero"><div><span class="muted">${new Date().toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"})}</span><h2>Today at a glance</h2><small class="muted">${esc(data.semester.name)} · ${esc(data.semester.schoolYear)}</small></div><div class="orb">✦</div></div>
@@ -213,7 +216,7 @@ function settings(){
  <div class="settinggroup"><h3>Reminders</h3><button class="setting notification-setting" onclick="toggleNotifications()"><span>🔔</span><div><strong>Notifications</strong><small>${data.notifications?"Enabled":"Disabled"}</small></div><b>${data.notifications?"ON":"OFF"}</b></button><label class="setting class-reminder-setting"><span>⏰</span><div><strong>Class reminder</strong><small>Before each class starts</small></div><select onchange="setClassRemind(this.value)">${[[0,"Off"],[5,"5 min"],[10,"10 min"],[15,"15 min"],[20,"20 min"],[30,"30 min"]].map(o=>`<option value="${o[0]}" ${(data.classRemind??10)==o[0]?"selected":""}>${o[1]}</option>`).join("")}</select></label><button class="setting sound-setting" onclick="openSound()"><span>🔊</span><div><strong>Notification sound</strong><small>${data.soundOn===false?"Off":data.sound&&data.sound!=="default"?prettyS(data.sound)+" · "+(data.soundDur||15)+" sec":"Phone default"}</small></div><b>›</b></button></div>
  <div class="settinggroup"><h3>Study tools</h3><button class="setting" onclick="openNotes()"><span>🗒️</span><div><strong>Notes</strong><small>${data.notes.length} saved note${data.notes.length===1?"":"s"}</small></div><b>›</b></button><button class="setting focus-setting" onclick="openGoals()"><span>🎯</span><div><strong>Study goals & focus</strong><small>${data.goals.filter(g=>!g.done).length} active goal${data.goals.filter(g=>!g.done).length===1?"":"s"} · Pomodoro</small></div><b>›</b></button><button class="setting" onclick="openSemester()"><span>🗃️</span><div><strong>Semester</strong><small>${esc(data.semester.name)} · ${esc(data.semester.schoolYear)}</small></div><b>›</b></button></div>
  <div class="settinggroup"><h3>Help</h3><button class="setting" onclick="startTour()"><span>🎓</span><div><strong>Replay tutorial</strong><small>A quick guided tour of the app</small></div><b>›</b></button></div><div class="settinggroup"><h3>Backup</h3><button class="setting backup-setting" onclick="openBackup()"><span>💾</span><div><strong>Backup &amp; restore</strong><small>Save or move your data</small></div><b>›</b></button></div><div class="settinggroup"><h3>Data</h3><button class="setting danger" onclick="resetData()"><span>↺</span><div><strong>Reset all data</strong><small>Remove subjects, classes and events</small></div><b>›</b></button></div>
- <p class="version">StudyFlow • v40</p></section>`;
+ <p class="version">StudyFlow • v45</p></section>`;
 }
 
 function modal(title,body){
@@ -292,8 +295,8 @@ window.toggleGoalHistory=()=>{
 };
 window.closeGoalHistory=()=>document.querySelector("#goalHistoryOverlay")?.remove();
 window.toggleGoalFromHistory=id=>{const g=data.goals.find(x=>x.id===id);if(!g)return;g.done=false;delete g.completedAt;save();closeGoalHistory();openGoals()};
-window.addGoal=()=>modal("New study goal",`<form onsubmit="saveGoal(event)"><label>Goal<input id="gotitle" required placeholder="Finish Chapter 3"></label><label>Target / detail<input id="gotarget" placeholder="By Friday"></label><button class="primary wide">Save goal</button></form>`);
-window.saveGoal=e=>{e.preventDefault();data.goals.push({id:uid(),title:gotitle.value,target:gotarget.value,done:false});save();closeModal();openGoals()};
+window.addGoal=()=>modal("New study goal",`<form onsubmit="saveGoal(event)"><label>Goal<input id="gotitle" required placeholder="Finish Chapter 3"></label><label>Target / detail<input id="gotarget" placeholder="By Friday"></label><label class="goalstartchoice"><input id="gostart" type="checkbox"> <span>Start this goal now</span></label><button class="primary wide">Save goal</button></form>`);
+window.saveGoal=e=>{e.preventDefault();const title=document.querySelector("#gotitle")?.value.trim();const target=document.querySelector("#gotarget")?.value.trim()||"";if(!title)return;const id=uid();data.goals.push({id,title,target,done:false});save();const startNow=!!document.querySelector("#gostart")?.checked;closeModal();if(startNow){openFocus("goal",id)}else{openGoals()}};
 window.toggleGoal=(id,btn)=>{
  const g=data.goals.find(x=>x.id===id); if(!g)return;
  const was=g.done; g.done=!was; if(g.done)g.completedAt=Date.now(); else delete g.completedAt; save();
@@ -335,7 +338,7 @@ window.openFocus=async(type=null,id=null)=>{
  renderFocus();
 };
 window.setFocusDuration=()=>{if(focusEndAt)return;let n=Math.max(1,Number(document.querySelector("#focusamount")?.value||25)),u=document.querySelector("#focusunit")?.value||"minutes",mult=u==="hours"?3600:u==="seconds"?1:60;focusTotal=Math.round(n*mult);focusLeft=focusTotal;writeFocus();renderFocus()};
-window.startFocus=async()=>{if(focusEndAt)return;if(!focusLeft)setFocusDuration();focusEndAt=Date.now()+focusLeft*1000;writeFocus();reconcileFocus();closeModal();shell();renderFocus();scheduleFocusNotification().catch(e=>console.warn("Focus notification failed",e))};
+window.startFocus=async()=>{if(focusEndAt)return;if(!focusTarget)focusTarget=null;if(!focusLeft)setFocusDuration();focusEndAt=Date.now()+focusLeft*1000;writeFocus();reconcileFocus();closeModal();shell();requestAnimationFrame(()=>{reconcileFocus();renderFocus()});scheduleFocusNotification().catch(e=>console.warn("Focus notification failed",e))};
 window.resetFocus=async()=>{clearInterval(focusTimer);focusTimer=null;focusEndAt=null;focusTarget=null;focusLeft=focusTotal;writeFocus();await cancelFocusNotification();shell()};
 window.addEventListener("visibilitychange",()=>{if(!document.hidden)reconcileFocus()});window.addEventListener("focus",reconcileFocus);reconcileFocus();
 window.openAcademicCalendar=()=>modal("Academic calendar",`<div class="sectionhead"><h3>Important dates</h3><button onclick="addAcademicDate()">＋ Date</button></div>${data.academicDates.length?data.academicDates.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(a=>`<div class="card note"><div class="grow"><strong>${esc(a.title)}</strong><span>${fmtDate(a.date)}${a.kind?" · "+esc(a.kind):""}</span></div><button class="dots" onclick="deleteAcademicDate('${a.id}')">×</button></div>`).join(""):`<div class="empty small"><strong>No academic dates</strong><span>Add holidays, exam periods, school events or deadlines.</span></div>`}`);
