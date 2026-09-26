@@ -37,7 +37,7 @@ function fmtTime(x){if(!x)return "";let [h,m]=x.split(":");let d=new Date();d.se
 function todayName(){return new Date().toLocaleDateString(undefined,{weekday:"long"});}
 function initials(n){const p=String(n||"").trim().split(/\s+/).filter(Boolean);return p.length?(p[0][0]+(p[1]?p[1][0]:"")).toUpperCase():"🎓"}
 function headChips(){const dn=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][new Date().getDay()],t=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
- const c=data.classes.filter(x=>x.day===dn).length,e=data.events.filter(x=>x.status!=="Completed").length;
+ const c=data.classes.filter(x=>x.day===dn).length,e=upcomingEvents().length;
  return `<span>📚 ${c} class${c===1?"":"es"} today</span><span>⏰ ${e} upcoming</span>`}
 function greeting(){let h=new Date().getHours();return h<12?"Good morning":h<18?"Good afternoon":"Good evening";}
 function subjectName(id){return data.subjects.find(s=>s.id===id)?.name||"No subject";}
@@ -88,20 +88,22 @@ function eventStartMs(e){
  return new Date(`${base}T${e.time||"00:00"}`).getTime();
 }
 function formatEventCountdown(ms){
- ms=Math.max(0,ms);
+ const past=ms<0;
+ ms=Math.abs(ms);
  let s=Math.floor(ms/1000),d=Math.floor(s/86400);s%=86400;
  let h=Math.floor(s/3600);s%=3600;
  let m=Math.floor(s/60),sec=s%60;
- if(d>0)return `${d}d ${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
- return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
+ const value=d>0?`${d}d ${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`:`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
+ return past?`Overdue ${value}`:value;
 }
 function startHomeEventCountdowns(){
  clearInterval(homeEventCountdownTimer);
  const update=()=>{
   document.querySelectorAll(".eventcountdown[data-event-time]").forEach(el=>{
    const left=Number(el.dataset.eventTime)-Date.now();
-   if(left<=0){el.textContent="Starting now";el.classList.add("starting");}
-   else el.textContent=formatEventCountdown(left);
+   el.textContent=formatEventCountdown(left);
+   el.classList.toggle("starting",left<=0);
+   el.classList.toggle("overdue",left<0);
   });
  };
  update();
@@ -109,8 +111,15 @@ function startHomeEventCountdowns(){
 }
 function upcomingEvents(){
  const now=Date.now();
- return data.events.filter(e=>e.status!=="Completed"&&Number.isFinite(eventStartMs(e))&&eventStartMs(e)>now)
-  .sort((a,b)=>eventStartMs(a)-eventStartMs(b)).slice(0,3);
+ const pending=data.events.filter(e=>e.status!=="Completed"&&Number.isFinite(eventStartMs(e)));
+ // Keep incomplete events visible on Home even if their scheduled time has passed.
+ // Future events are shown first; overdue events remain visible until marked done.
+ return pending.sort((a,b)=>{
+  const at=eventStartMs(a),bt=eventStartMs(b);
+  const af=at>=now,bf=bt>=now;
+  if(af!==bf)return af?-1:1;
+  return af?at-bt:bt-at;
+ }).slice(0,3);
 }
 function home(){
  clearInterval(homeEventCountdownTimer);
@@ -121,7 +130,10 @@ function home(){
  let studyProgress=totalGoals?Math.round((completedGoals/totalGoals)*100):0;
  let upcoming=upcomingEvents();
  const goalRows=[...activeGoals.map(g=>({g,done:false})),...doneGoals.map(g=>({g,done:true}))];
- const goalMarkup=goalRows.map(({g,done})=>`<div class="goalmini ${done?"done":""}" data-id="${g.id}"><div class="grow"><strong>${done?"✓":"🎯"} ${esc(g.title)}</strong><span>${done?"Completed"+(g.target?" · "+esc(g.target):""):esc(g.target||"Keep going")}</span></div>${!done?`<button class="inlinefocus" onclick="openFocus('goal','${g.id}')">⏱ Focus</button>`:""}<button class="chk goalcheck ${done?"on":""}" aria-label="${done?"Mark goal active":"Mark goal complete"}" onclick="toggleGoal('${g.id}',this)"><span class="burst"></span><svg viewBox="0 0 24 24"><path d="M5 12l4.5 4.5L19 7.5"/></svg></button></div>`).join("");
+ const goalMarkup=goalRows.map(({g,done})=>{
+  const activeFocus=!done&&focusEndAt&&focusTarget?.type==="goal"&&focusTarget.id===g.id;
+  return `<div class="goalmini ${done?"done":""}" data-id="${g.id}"><div class="grow"><strong>${done?"✓":"🎯"} ${esc(g.title)}</strong><span>${done?"Completed"+(g.target?" · "+esc(g.target):""):esc(g.target||"Keep going")}</span></div>${!done?`<button class="inlinefocus ${activeFocus?"running":""}" onclick="openFocus('goal','${g.id}')">${activeFocus?`<span class="focusdot"></span><span>${formatFocus(Math.max(0,Math.ceil((focusEndAt-Date.now())/1000)))}</span>`:"⏱ Focus"}</button>`:""}<button class="chk goalcheck ${done?"on":""}" aria-label="${done?"Mark goal active":"Mark goal complete"}" onclick="toggleGoal('${g.id}',this)"><span class="burst"></span><svg viewBox="0 0 24 24"><path d="M5 12l4.5 4.5L19 7.5"/></svg></button></div>`;
+ }).join("");
  return `<section class="page">
   <div class="hero"><div><span class="muted">${new Date().toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"})}</span><h2>Today at a glance</h2><small class="muted">${esc(data.semester.name)} · ${esc(data.semester.schoolYear)}</small></div><div class="orb">✦</div></div>
   <div class="sectionhead"><h3>Study & Goals</h3><button onclick="openGoals()">Manage</button></div>
@@ -143,7 +155,8 @@ function home(){
 }
 function homeEventCard(e){
  const d=e.status==="Completed",t=eventStartMs(e);
- return `<div class="card homeevent ${d?"done":""}" data-id="${e.id}"><button class="chk ${d?"on":""}" onclick="toggleDone('${e.id}',this)" aria-label="Mark complete"><span class="burst"></span><svg viewBox="0 0 24 24"><path d="M5 12l4.5 4.5L19 7.5"/></svg></button><div class="typeicon t-${e.type.toLowerCase()}">${icon(e.type)}</div><div class="grow"><strong>${esc(e.title)}</strong><span>${esc(e.type)} · ${esc(subjectName(e.subjectId))}</span><small>${fmtDate(e.date)}${e.time?" · "+fmtTime(e.time):""}</small></div>${Number.isFinite(t)?`<span class="eventcountdown" data-event-time="${t}">${formatEventCountdown(t-Date.now())}</span>`:""}</div>`;
+ const overdue=Number.isFinite(t)&&t<Date.now();
+ return `<div class="card homeevent ${d?"done":""} ${overdue?"overdue":""}" data-id="${e.id}"><button class="chk ${d?"on":""}" onclick="toggleDone('${e.id}',this)" aria-label="Mark complete"><span class="burst"></span><svg viewBox="0 0 24 24"><path d="M5 12l4.5 4.5L19 7.5"/></svg></button><div class="typeicon t-${e.type.toLowerCase()}">${icon(e.type)}</div><div class="grow"><strong>${esc(e.title)}</strong><span>${esc(e.type)} · ${esc(subjectName(e.subjectId))}</span><small>${fmtDate(e.date)}${e.time?" · "+fmtTime(e.time):""}</small></div>${Number.isFinite(t)?`<span class="eventcountdown" data-event-time="${t}">${formatEventCountdown(t-Date.now())}</span>`:""}</div>`;
 }
 function classCard(x){return `<div class="card classcard"><div class="time">${fmtTime(x.start)}<small>${fmtTime(x.end)}</small></div><div class="line"></div><div class="grow"><strong>${esc(subjectName(x.subjectId))}</strong><span>${esc(x.teacher||"")} ${x.room?"· "+esc(x.room):""}</span></div><button class="dots" onclick="editClass('${x.id}')">⋯</button></div>`}
 function eventCard(e){const d=e.status==="Completed",p=e.type==="Assignment"?e.priority:"";return `<div class="card eventcard ${d?"done":""}" data-id="${e.id}"><button class="chk ${d?"on":""}" onclick="toggleDone('${e.id}',this)" aria-label="Mark complete"><span class="burst"></span><svg viewBox="0 0 24 24"><path d="M5 12l4.5 4.5L19 7.5"/></svg></button><div class="typeicon t-${e.type.toLowerCase()}">${icon(e.type)}</div><div class="grow"><strong>${esc(e.title)}</strong><span>${esc(e.type)} · ${esc(subjectName(e.subjectId))}${p?" · "+esc(p)+" priority":""}</span><small>${d?"✓ Completed":fmtDate(e.date)+(e.time?" · "+fmtTime(e.time):"")}</small></div>${!d?`<button class="inlinefocus" onclick="openFocus('event','${e.id}')">⏱</button>`:""}<button class="dots" onclick="editEvent('${e.id}')">⋯</button></div>`}
