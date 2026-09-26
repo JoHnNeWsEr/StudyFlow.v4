@@ -109,17 +109,18 @@ function startHomeEventCountdowns(){
  update();
  homeEventCountdownTimer=setInterval(update,1000);
 }
+function localTodayIso(){
+ const d=new Date();
+ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
 function upcomingEvents(){
- const now=Date.now();
- const pending=data.events.filter(e=>e.status!=="Completed"&&Number.isFinite(eventStartMs(e)));
- // Keep incomplete events visible on Home even if their scheduled time has passed.
- // Future events are shown first; overdue events remain visible until marked done.
- return pending.sort((a,b)=>{
-  const at=eventStartMs(a),bt=eventStartMs(b);
-  const af=at>=now,bf=bt>=now;
-  if(af!==bf)return af?-1:1;
-  return af?at-bt:bt-at;
- }).slice(0,3);
+ // Home only shows unfinished events on their exact calendar day.
+ // Events scheduled for tomorrow/later remain available in the Events page.
+ const today=localTodayIso();
+ return data.events
+  .filter(e=>e.status!=="Completed"&&e.date===today&&Number.isFinite(eventStartMs(e)))
+  .sort((a,b)=>eventStartMs(a)-eventStartMs(b))
+  .slice(0,3);
 }
 function home(){
  clearInterval(homeEventCountdownTimer);
@@ -288,7 +289,21 @@ async function scheduleFocusNotification(){if(!focusEndAt||!native||data.notific
 function renderFocus(){let el=document.querySelector("#focusclock");if(el)el.textContent=formatFocus(focusLeft);let btn=document.querySelector("#focusstart");if(btn)btn.textContent=focusEndAt?"Running…":"Start";document.querySelectorAll(".inlinefocus").forEach(b=>{let row=b.closest(".goalmini")||b.closest(".eventcard")||b.closest(".homeevent"),type=b.closest(".goalmini")?"goal":"event",id=row?.dataset.id,active=focusEndAt&&focusTarget?.type===type&&focusTarget.id===id;b.innerHTML=active?`<span class="focusdot"></span><span>${formatFocus(focusLeft)}</span>`:(type==="goal"?"⏱ Focus":"⏱");b.classList.toggle("running",!!active)})}
 async function finishFocus(){clearInterval(focusTimer);focusTimer=null;focusLeft=0;focusEndAt=null;focusTarget=null;writeFocus();await cancelFocusNotification();renderFocus();try{navigator.vibrate&&navigator.vibrate([120,80,120])}catch(e){}if(document.visibilityState!=="hidden")alert("Focus session complete! Take a 5-minute break 🎉")}
 function reconcileFocus(){let st=readFocus();if(!st)return;if(st.running&&st.endAt){focusTotal=Number(st.total)||focusTotal;focusEndAt=Number(st.endAt);focusTarget=st.target||null;focusLeft=Math.max(0,Math.ceil((focusEndAt-Date.now())/1000));if(focusLeft<=0){finishFocus()}else{clearInterval(focusTimer);focusTimer=setInterval(()=>{focusLeft=Math.max(0,Math.ceil((focusEndAt-Date.now())/1000));renderFocus();if(focusLeft<=0)finishFocus()},250)}}else{focusTotal=Number(st.total)||focusTotal;focusLeft=Number(st.left)||focusTotal;focusTarget=st.target||null;focusEndAt=null}}
-window.openFocus=(type=null,id=null)=>{reconcileFocus();if(type&&id&&!focusEndAt){focusTarget={type,id};writeFocus()}let label=focusLabel(),amount=focusEndAt?Math.max(1,Math.ceil(focusLeft/60)):25;modal("Focus timer",`<div class="focus"><div class="focustarget">${label?`🎯 <strong>${esc(label)}</strong>`:"General study session"}</div><div id="focusclock">${formatFocus(focusLeft)}</div><p class="muted">The timer keeps running if you leave, minimize, or close StudyFlow. Android will notify you when it finishes.</p><div class="row"><label>Duration<input id="focusamount" type="number" min="1" step="1" value="${amount}"></label><label>Unit<select id="focusunit"><option value="seconds">Seconds</option><option value="minutes" selected>Minutes</option><option value="hours">Hours</option></select></label></div><button class="wide" onclick="setFocusDuration()">Set duration</button><button id="focusstart" class="primary wide" onclick="startFocus()">${focusEndAt?"Running…":"Start"}</button><button class="wide" onclick="resetFocus()">Reset</button></div>`);renderFocus()};
+window.openFocus=async(type=null,id=null)=>{
+ reconcileFocus();
+ if(type&&id){
+  const nextTarget={type,id};
+  const changed=!focusTarget||focusTarget.type!==type||focusTarget.id!==id;
+  focusTarget=nextTarget;
+  writeFocus();
+  // If a session is already running, attach that live session to the exact item
+  // the user selected and refresh the native notification label as well.
+  if(changed&&focusEndAt) await scheduleFocusNotification();
+ }
+ let label=focusLabel(),amount=focusEndAt?Math.max(1,Math.ceil(focusLeft/60)):25;
+ modal("Focus timer",`<div class="focus"><div class="focustarget">${label?`🎯 <strong>${esc(label)}</strong>`:"General study session"}</div><div id="focusclock">${formatFocus(focusLeft)}</div><p class="muted">The timer keeps running if you leave, minimize, or close StudyFlow. Android will notify you when it finishes.</p><div class="row"><label>Duration<input id="focusamount" type="number" min="1" step="1" value="${amount}"></label><label>Unit<select id="focusunit"><option value="seconds">Seconds</option><option value="minutes" selected>Minutes</option><option value="hours">Hours</option></select></label></div><button class="wide" onclick="setFocusDuration()">Set duration</button><button id="focusstart" class="primary wide" onclick="startFocus()">${focusEndAt?"Running…":"Start"}</button><button class="wide" onclick="resetFocus()">Reset</button></div>`);
+ renderFocus();
+};
 window.setFocusDuration=()=>{if(focusEndAt)return;let n=Math.max(1,Number(document.querySelector("#focusamount")?.value||25)),u=document.querySelector("#focusunit")?.value||"minutes",mult=u==="hours"?3600:u==="seconds"?1:60;focusTotal=Math.round(n*mult);focusLeft=focusTotal;writeFocus();renderFocus()};
 window.startFocus=async()=>{if(focusEndAt)return;if(!focusLeft)setFocusDuration();focusEndAt=Date.now()+focusLeft*1000;writeFocus();await scheduleFocusNotification();reconcileFocus();shell()};
 window.resetFocus=async()=>{clearInterval(focusTimer);focusTimer=null;focusEndAt=null;focusTarget=null;focusLeft=focusTotal;writeFocus();await cancelFocusNotification();shell()};
