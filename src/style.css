@@ -262,3 +262,9 @@ html[data-theme="dark"] .historydialog,html[data-theme="midnight"] .historydialo
 .studyggoalpanel .progressbar span{background:var(--accent);box-shadow:0 0 10px color-mix(in srgb,var(--accent) 28%,transparent)}
 
 .goalstartchoice{display:flex;align-items:center;gap:9px;font-size:13px!important;font-weight:700!important;color:#555}.goalstartchoice input{display:inline-block;width:18px;height:18px;margin:0;accent-color:var(--accent,#6a49f5)}
+/* v46 goal-only focus flow */
+.focusrunning{display:inline-flex!important;align-items:center;gap:7px;color:var(--accent,#6a49f5);font-weight:800}
+.goalhint{margin:10px 0 2px;line-height:1.45}
+
+/* v47: clear three-action goal menu */
+.goalactions{display:flex;flex-direction:column;gap:10px}
