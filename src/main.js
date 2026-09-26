@@ -49,7 +49,6 @@ function shell(){
  <div class="app">
   <header class="top"><div class="hgrid"><div class="avatar" onclick="profile()">${data.profile.photo?`<img src="${data.profile.photo}" alt="">`:initials(data.profile.name)}</div>
    <div class="htext"><div class="eyebrow">${greeting().toUpperCase()} ${new Date().getHours()<12?"☀️":new Date().getHours()<18?"🌤️":"🌙"}</div><h1 class="hname">${data.profile.name?esc(data.profile.name):"Ready to study?"}</h1></div>
-   <div class="theme-art" aria-hidden="true"><span>${themeArt(data.theme)}</span><i></i><i></i><i></i></div>
    <button class="iconbtn" onclick="openQuick()">＋</button></div>
    <div class="hchips">${headChips()}</div></header>
   <main id="content"></main>
@@ -127,11 +126,10 @@ function home(){
  clearInterval(homeEventCountdownTimer);
  let dn=todayName(), cls=data.classes.filter(x=>x.day===dn).sort((a,b)=>a.start.localeCompare(b.start));
  let activeGoals=data.goals.filter(g=>!g.done).slice(0,3);
- let doneGoals=data.goals.filter(g=>g.done).slice(-2).reverse();
  let totalGoals=data.goals.length, completedGoals=data.goals.filter(g=>g.done).length;
  let studyProgress=totalGoals?Math.round((completedGoals/totalGoals)*100):0;
  let upcoming=upcomingEvents();
- const goalRows=[...activeGoals.map(g=>({g,done:false})),...doneGoals.map(g=>({g,done:true}))];
+ const goalRows=activeGoals.map(g=>({g,done:false}));
  const goalMarkup=goalRows.map(({g,done})=>{
   const activeFocus=!done&&focusEndAt&&focusTarget?.type==="goal"&&focusTarget.id===g.id;
   return `<div class="goalmini ${done?"done":""}" data-id="${g.id}"><div class="grow"><strong>${done?"✓":"🎯"} ${esc(g.title)}</strong><span>${done?"Completed"+(g.target?" · "+esc(g.target):""):esc(g.target||"Keep going")}</span></div>${!done?`<button class="inlinefocus ${activeFocus?"running":""}" onclick="openFocus('goal','${g.id}')">${activeFocus?`<span class="focusdot"></span><span>${formatFocus(Math.max(0,Math.ceil((focusEndAt-Date.now())/1000)))}</span>`:"⏱ Focus"}</button>`:""}<button class="chk goalcheck ${done?"on":""}" aria-label="${done?"Mark goal active":"Mark goal complete"}" onclick="toggleGoal('${g.id}',this)"><span class="burst"></span><svg viewBox="0 0 24 24"><path d="M5 12l4.5 4.5L19 7.5"/></svg></button></div>`;
@@ -147,7 +145,7 @@ function home(){
    <div class="studygoalhead"><div><strong>Study & Goals</strong><span>Keep your progress moving</span></div></div>
    <div class="progressbar"><span style="width:${studyProgress}%"></span></div>
    ${goalMarkup}
-   ${!activeGoals.length&&!doneGoals.length?`<div class="empty small"><strong>No study goals yet</strong><span>Add a goal to start tracking your progress.</span></div>`:""}
+   ${!activeGoals.length?`<div class="empty small"><strong>No active study goals</strong><span>Add a goal to start tracking your progress.</span></div>`:""}
   </div>
   <div class="sectionhead"><h3>Upcoming Events</h3><button onclick="go('events')">View all</button></div>
   <div class="homeevents">${upcoming.length?upcoming.map(e=>homeEventCard(e)).join(""):`<div class="empty small"><strong>No upcoming events</strong><span>Add quizzes, exams, assignments or other deadlines from Events.</span><button onclick="addEvent()">Add event</button></div>`}</div>
@@ -196,7 +194,7 @@ function settings(){
  <div class="settinggroup"><h3>Reminders</h3><button class="setting notification-setting" onclick="toggleNotifications()"><span>🔔</span><div><strong>Notifications</strong><small>${data.notifications?"Enabled":"Disabled"}</small></div><b>${data.notifications?"ON":"OFF"}</b></button><label class="setting class-reminder-setting"><span>⏰</span><div><strong>Class reminder</strong><small>Before each class starts</small></div><select onchange="setClassRemind(this.value)">${[[0,"Off"],[5,"5 min"],[10,"10 min"],[15,"15 min"],[20,"20 min"],[30,"30 min"]].map(o=>`<option value="${o[0]}" ${(data.classRemind??10)==o[0]?"selected":""}>${o[1]}</option>`).join("")}</select></label><button class="setting sound-setting" onclick="openSound()"><span>🔊</span><div><strong>Notification sound</strong><small>${data.soundOn===false?"Off":data.sound&&data.sound!=="default"?prettyS(data.sound)+" · "+(data.soundDur||15)+" sec":"Phone default"}</small></div><b>›</b></button><button class="setting test-notification-setting" onclick="testNotify()"><span>🧪</span><div><strong>Send test notification</strong><small>Arrives in 5 seconds</small></div><b>TEST</b></button></div>
  <div class="settinggroup"><h3>Study tools</h3><button class="setting" onclick="openNotes()"><span>🗒️</span><div><strong>Notes</strong><small>${data.notes.length} saved note${data.notes.length===1?"":"s"}</small></div><b>›</b></button><button class="setting focus-setting" onclick="openGoals()"><span>🎯</span><div><strong>Study goals & focus</strong><small>${data.goals.filter(g=>!g.done).length} active goal${data.goals.filter(g=>!g.done).length===1?"":"s"} · Pomodoro</small></div><b>›</b></button><button class="setting" onclick="openSemester()"><span>🗃️</span><div><strong>Semester</strong><small>${esc(data.semester.name)} · ${esc(data.semester.schoolYear)}</small></div><b>›</b></button></div>
  <div class="settinggroup"><h3>Help</h3><button class="setting" onclick="startTour()"><span>🎓</span><div><strong>Replay tutorial</strong><small>A quick guided tour of the app</small></div><b>›</b></button></div><div class="settinggroup"><h3>Backup</h3><button class="setting backup-setting" onclick="openBackup()"><span>💾</span><div><strong>Backup &amp; restore</strong><small>Save or move your data</small></div><b>›</b></button></div><div class="settinggroup"><h3>Data</h3><button class="setting danger" onclick="resetData()"><span>↺</span><div><strong>Reset all data</strong><small>Remove subjects, classes and events</small></div><b>›</b></button></div>
- <p class="version">StudyFlow • v34</p></section>`;
+ <p class="version">StudyFlow • v35</p></section>`;
 }
 
 function modal(title,body){
@@ -263,12 +261,12 @@ window.saveGrade=e=>{e.preventDefault();data.grades.push({id:uid(),subjectId:gsu
 window.editGrade=id=>{let g=data.grades.find(x=>x.id===id);modal("Edit grade",`<form onsubmit="updateGrade(event,'${id}')"><label>Subject<select id="gsub">${subjectOptions(g.subjectId)}</select></label><label>Assessment<input id="glabel" value="${esc(g.label)}"></label><label>Score (%)<input id="gscore" type="number" min="0" max="100" step="0.01" value="${g.score}"></label><button class="primary wide">Save changes</button><button type="button" class="delete wide" onclick="deleteGrade('${id}')">Delete</button></form>`)};
 window.updateGrade=(e,id)=>{e.preventDefault();let g=data.grades.find(x=>x.id===id);Object.assign(g,{subjectId:gsub.value,label:glabel.value,score:+gscore.value});save();closeModal();openGrades()};
 window.deleteGrade=id=>{data.grades=data.grades.filter(g=>g.id!==id);save();closeModal();openGrades()};
-window.openGoals=()=>modal("Study goals & focus",`<div class="sectionhead"><h3>Goals</h3><button onclick="addGoal()">＋ Goal</button></div>${data.goals.length?data.goals.map(g=>`<div class="card goalmini ${g.done?"done":""}" data-id="${g.id}"><button class="chk goalcheck ${g.done?"on":""}" aria-label="${g.done?"Mark goal active":"Mark goal complete"}" onclick="toggleGoal('${g.id}',this)"><span class="burst"></span><svg viewBox="0 0 24 24"><path d="M5 12l4.5 4.5L19 7.5"/></svg></button><div class="grow"><strong>${esc(g.title)}</strong><span>${esc(g.target||"")}</span></div><button class="dots" onclick="editGoal('${g.id}')">⋯</button></div>`).join(""):`<div class="empty small"><strong>No study goals yet</strong><span>Set a small target and build momentum.</span></div>`}<button class="primary wide" onclick="openFocus()">⏱ Start focus session</button>`);
+window.openGoals=()=>{const active=data.goals.filter(g=>!g.done);const history=data.goals.filter(g=>g.done).slice().sort((a,b)=>(b.completedAt||0)-(a.completedAt||0));modal("Study goals & focus",`<div class="sectionhead"><h3>Active goals</h3><button onclick="addGoal()">＋ Goal</button></div>${active.length?active.map(g=>`<div class="card goalmini" data-id="${g.id}"><button class="chk goalcheck" aria-label="Mark goal complete" onclick="toggleGoal('${g.id}',this)"><span class="burst"></span><svg viewBox="0 0 24 24"><path d="M5 12l4.5 4.5L19 7.5"/></svg></button><div class="grow"><strong>${esc(g.title)}</strong><span>${esc(g.target||"")}</span></div><button class="dots" onclick="editGoal('${g.id}')">⋯</button></div>`).join(""):`<div class="empty small"><strong>No active study goals</strong><span>Set a small target and build momentum.</span></div>`}<div class="goalhistory"><div class="sectionhead"><h3>Completed history</h3><span class="muted">${history.length} completed</span></div>${history.length?history.map(g=>`<div class="card goalhistoryitem"><div class="grow"><strong>✓ ${esc(g.title)}</strong><span>${esc(g.target||"Completed goal")}</span><small>${g.completedAt?"Completed "+new Date(g.completedAt).toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"}):"Completed"}</small></div><button class="complete" onclick="toggleGoal('${g.id}',this)">Restore</button></div>`).join(""):`<div class="empty small"><strong>No completed goals yet</strong><span>Completed goals will appear here.</span></div>`}</div><button class="primary wide" onclick="openFocus()">⏱ Start focus session</button>`)};
 window.addGoal=()=>modal("New study goal",`<form onsubmit="saveGoal(event)"><label>Goal<input id="gotitle" required placeholder="Finish Chapter 3"></label><label>Target / detail<input id="gotarget" placeholder="By Friday"></label><button class="primary wide">Save goal</button></form>`);
 window.saveGoal=e=>{e.preventDefault();data.goals.push({id:uid(),title:gotitle.value,target:gotarget.value,done:false});save();closeModal();openGoals()};
 window.toggleGoal=(id,btn)=>{
  const g=data.goals.find(x=>x.id===id); if(!g)return;
- const was=g.done; g.done=!was; save();
+ const was=g.done; g.done=!was; if(g.done)g.completedAt=Date.now(); else delete g.completedAt; save();
  const card=btn?.closest(".goalmini");
  const inHome=!!btn?.closest(".studygoalpanel");
  if(!was && btn && card){
@@ -401,21 +399,19 @@ document.addEventListener("visibilitychange",()=>{if(!document.hidden)syncNotifi
 // ---------- First-run guided tour (spotlight) ----------
 const STEPS=[
  {t:"Welcome to StudyFlow 👋",d:"This guide walks you through the main features of StudyFlow. You can replay it anytime from Settings."},
- {v:"home",sel:".top",t:"Your day at a glance",d:"This header gives you a quick view of your day and your profile. Tap your photo circle to add a profile picture."},
- {v:"home",sel:".studygoalpanel",t:"Study & Goals",d:"Your study goals live here. Use the check circle to mark a goal complete, or use Focus beside a goal to start a timer for that goal."},
- {v:"home",sel:[".studygoalpanel .inlinefocus",".studygoalpanel"],t:"Focus a specific goal",d:"Use the Focus button beside a goal to attach the timer to that exact goal. When it is running, the live countdown appears there."},
+ {v:"home",sel:".hgrid",place:"header-below",t:"Your day at a glance",d:"This header shows your greeting, profile and quick-add button. The guide card stays below the header so it never covers what you are learning about."},
+ {v:"home",sel:".studygoalpanel",t:"Study & Goals",d:"Your active study goals live here. Mark a goal complete with the check circle, or use Focus beside a goal to start a timer for that exact goal."},
+ {v:"home",sel:[".studygoalpanel .inlinefocus",".studygoalpanel .goalmini"],t:"Focus a specific goal",d:"Use Focus beside an unfinished goal to attach the timer to that exact goal. The live countdown appears beside it while running."},
  {v:"subjects",sel:".pagehead .primary",t:"Add your subjects",d:"Add a subject once with its teacher and room. StudyFlow can then reuse it throughout your schedule."},
  {v:"schedule",sel:".daystrip",t:"Your weekly schedule",d:"Choose a day here to view that day's classes. Use ＋ Class to add a class."},
  {v:"events",sel:".pagehead .primary",t:"Quizzes, exams & tasks",d:"Add quizzes, exams, assignments and other tasks with dates, times and reminders."},
- {v:"events",sel:[".eventcard:not(.done) .inlinefocus",".eventcard:not(.done)",".eventcard",".pagehead .primary"],t:"Focus a specific task",d:"Use the ⏱ button on an unfinished event to attach Focus to that exact task."},
+ {v:"events",sel:[".eventcard:not(.done) .inlinefocus",".eventcard:not(.done)",".eventcard",".pagehead .primary"],t:"Focus a specific task",d:"Use the Focus button on an unfinished event to attach Focus to that exact task."},
  {v:"settings",sel:".notification-setting",t:"Notifications",d:"Turn StudyFlow notifications on or off here."},
- {v:"settings",sel:".class-reminder-setting",t:"Class reminders",d:"Choose whether StudyFlow reminds you 5, 10, 15, 20 or 30 minutes before each class."},
+ {v:"settings",sel:".class-reminder-setting",t:"Class reminders",d:"Choose 5, 10, 15, 20 or 30 minutes before each class. Android schedules these reminders even when StudyFlow is closed."},
  {v:"settings",sel:".theme-setting",t:"Appearance & themes",d:"Choose Light, Dark, Midnight, Ocean, Forest, Sunset, Rose or Minimal. Your choice is saved."},
- {v:"settings",sel:".focus-setting",t:"Focus keeps running",d:"Focus uses a real end time, so leaving StudyFlow or switching apps does not reset the session."},
- {v:"settings",sel:".backup-setting",t:"Keep your data safe",d:"Backup & restore lets you save your StudyFlow data and restore it later."},
+ {v:"settings",sel:".backup-setting",t:"Keep your data safe",d:"Backup & restore lets you save or move your StudyFlow data. Your completed study-goal history stays in the app as part of your saved data."},
  {t:"You're all set! 🎉",d:"Start with a subject, add your schedule and set your first study goal. You can replay this guide from Settings anytime."}
-]
-let tourI=0;
+]let tourI=0;
 function tourEl(){return document.getElementById("tour")}
 let tourBusy=false;
 function tourTarget(st){
@@ -455,12 +451,14 @@ function showStep(first=false){
    setTimeout(()=>{
     const r=el.getBoundingClientRect(),p=8;
     Object.assign(spot.style,{display:"block",left:Math.max(6,r.left-p)+"px",top:Math.max(6,r.top-p)+"px",width:r.width+2*p+"px",height:r.height+2*p+"px"});
-    // Keep the guide card in a readable, safe area. In particular, top-of-screen targets always get the card beneath them.
+    // Keep the guide card away from the highlighted control. Header tips are placed below the whole header, not over it.
     const tipH=tip.offsetHeight||170, gap=16, safeTop=12, safeBottom=innerHeight-12;
-    const spaceBelow=safeBottom-(r.bottom+p);
+    const anchor=st.place==="header-below"?(document.querySelector(".top")?.getBoundingClientRect()||r):r;
+    const belowTop=anchor.bottom+gap;
+    const spaceBelow=safeBottom-belowTop;
     const spaceAbove=(r.top-p)-safeTop;
     let top;
-    if(r.top<140 && spaceBelow>=tipH) top=r.bottom+p+gap;
+    if(st.place==="header-below" && spaceBelow>=tipH) top=belowTop;
     else if(spaceBelow>=tipH) top=r.bottom+p+gap;
     else if(spaceAbove>=tipH) top=r.top-p-gap-tipH;
     else top=Math.max(safeTop,Math.min(safeBottom-tipH,(innerHeight-tipH)/2));

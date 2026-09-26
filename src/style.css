@@ -188,25 +188,15 @@ html[data-theme="midnight"] .themecard,html[data-theme="ocean"] .themecard,html[
 html[data-theme="dark"] .themecard{background:#1b1b20;border-color:#2d2d34;color:#f5f5f7}
 @media(max-width:380px){.themegrid{grid-template-columns:1fr}}
 
-/* v33 theme-reactive header art */
-.top{background:linear-gradient(135deg,#6a49f5 0%,#9a5cff 55%,#ff7aa8 120%);transition:background .45s ease,box-shadow .45s ease}
-.theme-art{position:absolute;right:58px;top:10px;width:82px;height:70px;pointer-events:none;opacity:.92;z-index:0}
-.theme-art span{position:absolute;right:17px;top:8px;width:42px;height:42px;border-radius:15px;display:grid;place-items:center;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.24);font-size:21px;box-shadow:0 8px 20px rgba(0,0,0,.12);backdrop-filter:blur(5px)}
-.theme-art i{position:absolute;display:block;border-radius:50%;background:rgba(255,255,255,.22);animation:themeFloat 4s ease-in-out infinite}
-.theme-art i:nth-child(2){width:7px;height:7px;right:4px;top:4px}.theme-art i:nth-child(3){width:4px;height:4px;right:58px;top:54px;animation-delay:.7s}.theme-art i:nth-child(4){width:5px;height:5px;right:70px;top:27px;animation-delay:1.3s}
-@keyframes themeFloat{50%{transform:translateY(-4px) scale(1.12);opacity:.55}}
-html[data-theme="light"] .top{background:linear-gradient(135deg,#5b4cf4,#8a62ff 55%,#ff8bb1);box-shadow:0 14px 34px rgba(106,73,245,.28)}
-html[data-theme="dark"] .top{background:linear-gradient(135deg,#252531,#3b315f 58%,#5d3e62);box-shadow:0 14px 34px rgba(0,0,0,.38)}
-html[data-theme="midnight"] .top{background:linear-gradient(135deg,#201733,#49327b 58%,#6e4a91);box-shadow:0 14px 34px rgba(71,45,120,.38)}
-html[data-theme="ocean"] .top{background:linear-gradient(135deg,#0b2b43,#176b91 58%,#24a9c8);box-shadow:0 14px 34px rgba(10,83,112,.35)}
-html[data-theme="forest"] .top{background:linear-gradient(135deg,#0d3327,#17634a 58%,#2d9b72);box-shadow:0 14px 34px rgba(12,80,58,.35)}
-html[data-theme="sunset"] .top{background:linear-gradient(135deg,#482015,#9b4b24 55%,#e78b3d);box-shadow:0 14px 34px rgba(124,58,24,.35)}
-html[data-theme="rose"] .top{background:linear-gradient(135deg,#41172f,#8e315e 55%,#e26b9f);box-shadow:0 14px 34px rgba(125,35,79,.35)}
-html[data-theme="minimal"] .top{background:linear-gradient(135deg,#111,#292929 58%,#444);box-shadow:0 14px 34px rgba(0,0,0,.4)}
-html[data-theme="minimal"] .theme-art span{background:#222;border-color:#444}
-/* v33 tutorial layering/reliability fix */
+/* v35 clean theme-reactive header: no sticker/art overlay */
+
 #tour{z-index:20000!important;isolation:isolate}
 #tour .spot{z-index:1}
 #tour .tip{z-index:3;min-height:130px}
 #tour .tbtns{position:relative;z-index:4}
 @media(max-width:380px){#tour .tip{left:12px;right:12px;padding:15px}#tour .tip h3{font-size:17px}#tour .tip p{font-size:13.5px}}
+
+/* v35 completed-goal history */
+.goalhistory{margin-top:18px}.goalhistory .sectionhead{margin-top:18px}.goalhistoryitem{display:flex;align-items:center;gap:10px}.goalhistoryitem .complete{padding:8px 11px;font-size:12px;flex:none}.goalhistoryitem small{display:block;color:#999;font-size:11px;margin-top:5px}
+/* v35 tutorial positioning */
+#tour .tip{max-height:calc(100vh - 24px);overflow:auto}
