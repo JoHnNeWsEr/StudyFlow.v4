@@ -210,7 +210,7 @@ function settings(){
  return `<section class="page"><div class="pagehead"><div><span class="muted">PREFERENCES</span><h2>Settings</h2></div></div>
  <div class="settinggroup"><h3>Profile</h3><button class="setting" onclick="profile()"><span>${data.profile.photo?`<img class="pthumb" src="${data.profile.photo}" alt="">`:"👤"}</span><div><strong>${esc(data.profile.name||"Your profile")}</strong><small>${esc(data.profile.school||"Add your school information")}</small></div><b>›</b></button></div>
  <div class="settinggroup"><h3>Appearance</h3><button class="setting theme-setting" onclick="openThemes()"><span>◐</span><div><strong>Theme</strong><small>${themeName(data.theme)}</small></div><b>›</b></button></div>
- <div class="settinggroup"><h3>Reminders</h3><button class="setting notification-setting" onclick="toggleNotifications()"><span>🔔</span><div><strong>Notifications</strong><small>${data.notifications?"Enabled":"Disabled"}</small></div><b>${data.notifications?"ON":"OFF"}</b></button><label class="setting class-reminder-setting"><span>⏰</span><div><strong>Class reminder</strong><small>Before each class starts</small></div><select onchange="setClassRemind(this.value)">${[[0,"Off"],[5,"5 min"],[10,"10 min"],[15,"15 min"],[20,"20 min"],[30,"30 min"]].map(o=>`<option value="${o[0]}" ${(data.classRemind??10)==o[0]?"selected":""}>${o[1]}</option>`).join("")}</select></label><button class="setting sound-setting" onclick="openSound()"><span>🔊</span><div><strong>Notification sound</strong><small>${data.soundOn===false?"Off":data.sound&&data.sound!=="default"?prettyS(data.sound)+" · "+(data.soundDur||15)+" sec":"Phone default"}</small></div><b>›</b></button><button class="setting test-notification-setting" onclick="testNotify()"><span>🧪</span><div><strong>Send test notification</strong><small>Arrives in 5 seconds</small></div><b>TEST</b></button></div>
+ <div class="settinggroup"><h3>Reminders</h3><button class="setting notification-setting" onclick="toggleNotifications()"><span>🔔</span><div><strong>Notifications</strong><small>${data.notifications?"Enabled":"Disabled"}</small></div><b>${data.notifications?"ON":"OFF"}</b></button><label class="setting class-reminder-setting"><span>⏰</span><div><strong>Class reminder</strong><small>Before each class starts</small></div><select onchange="setClassRemind(this.value)">${[[0,"Off"],[5,"5 min"],[10,"10 min"],[15,"15 min"],[20,"20 min"],[30,"30 min"]].map(o=>`<option value="${o[0]}" ${(data.classRemind??10)==o[0]?"selected":""}>${o[1]}</option>`).join("")}</select></label><button class="setting sound-setting" onclick="openSound()"><span>🔊</span><div><strong>Notification sound</strong><small>${data.soundOn===false?"Off":data.sound&&data.sound!=="default"?prettyS(data.sound)+" · "+(data.soundDur||15)+" sec":"Phone default"}</small></div><b>›</b></button></div>
  <div class="settinggroup"><h3>Study tools</h3><button class="setting" onclick="openNotes()"><span>🗒️</span><div><strong>Notes</strong><small>${data.notes.length} saved note${data.notes.length===1?"":"s"}</small></div><b>›</b></button><button class="setting focus-setting" onclick="openGoals()"><span>🎯</span><div><strong>Study goals & focus</strong><small>${data.goals.filter(g=>!g.done).length} active goal${data.goals.filter(g=>!g.done).length===1?"":"s"} · Pomodoro</small></div><b>›</b></button><button class="setting" onclick="openSemester()"><span>🗃️</span><div><strong>Semester</strong><small>${esc(data.semester.name)} · ${esc(data.semester.schoolYear)}</small></div><b>›</b></button></div>
  <div class="settinggroup"><h3>Help</h3><button class="setting" onclick="startTour()"><span>🎓</span><div><strong>Replay tutorial</strong><small>A quick guided tour of the app</small></div><b>›</b></button></div><div class="settinggroup"><h3>Backup</h3><button class="setting backup-setting" onclick="openBackup()"><span>💾</span><div><strong>Backup &amp; restore</strong><small>Save or move your data</small></div><b>›</b></button></div><div class="settinggroup"><h3>Data</h3><button class="setting danger" onclick="resetData()"><span>↺</span><div><strong>Reset all data</strong><small>Remove subjects, classes and events</small></div><b>›</b></button></div>
  <p class="version">StudyFlow • v40</p></section>`;
@@ -360,7 +360,7 @@ function themeArt(id){return ({light:"☀️",dark:"🌙",midnight:"🌌",ocean:
 window.openThemes=()=>modal("Choose a theme",`<div class="themegrid">${THEME_OPTIONS.map(t=>`<button class="themecard ${data.theme===t.id?"selected":""}" onclick="setTheme('${t.id}')"><span class="themeicon theme-${t.id}">${t.icon}</span><span class="grow"><strong>${t.name}</strong><small>${t.desc}</small></span>${data.theme===t.id?'<b>✓</b>':'<b>›</b>'}</button>`).join("")} </div>`);
 window.setTheme=id=>{data.theme=THEME_OPTIONS.some(t=>t.id===id)?id:"light";save();closeModal();shell()};
 window.toggleTheme=()=>openThemes();
-window.toggleNotifications=()=>{data.notifications=!data.notifications;save();shell()};
+window.toggleNotifications=async()=>{if(!data.notifications){if(!await ensurePerm(true))return;}data.notifications=!data.notifications;save();shell()};
 window.resetData=()=>{if(confirm("Reset all StudyFlow data?")){store.del(KEY);data={profile:{name:"",school:"",grade:""},subjects:[],classes:[],events:[],theme:"light",notifications:true,notes:[],goals:[],grades:[],academicDates:[],semester:{name:"1st Semester",schoolYear:"2026–2027"}};view="home";shell()}};
 
 shell();
@@ -381,10 +381,10 @@ function saveReminderIds(ids){try{localStorage.setItem(REMINDER_IDS_KEY,JSON.str
 function due(e){return new Date(e.date+"T"+e.time+":00").getTime()-e.reminder*60000;}
 function body(e){return `${e.type} · ${subjectName(e.subjectId)} · ${fmtTime(e.time)}`;}
 const WD=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-async function ensurePerm(){
- if(native){let p=await LocalNotifications.checkPermissions();if(p.display!=="granted")p=await LocalNotifications.requestPermissions();return p.display==="granted";}
+async function ensurePerm(prompt=true){
+ if(native){let p=await LocalNotifications.checkPermissions();if(p.display!=="granted"&&prompt)p=await LocalNotifications.requestPermissions();return p.display==="granted";}
  if(!("Notification" in window))return false;
- if(Notification.permission==="default")await Notification.requestPermission();
+ if(Notification.permission==="default"&&prompt)await Notification.requestPermission();
  return Notification.permission==="granted";
 }
 function classAlarm(c,mins){
@@ -402,26 +402,18 @@ async function syncNotifications(){
    const oldIds=reminderIds();
    if(oldIds.length)await LocalNotifications.cancel({notifications:oldIds.map(id=>({id}))});
    if(!evs.length&&!cls.length){saveReminderIds([]);return;}
-   if(!await ensurePerm()){saveReminderIds([]);return;}
+   if(!await ensurePerm(false)){saveReminderIds([]);return;}
    try{await mkChannel()}catch(e){}
    const list=[...evs.map(e=>({channelId:chId(),id:numId(e.id),title:e.title,body:body(e),schedule:{at:new Date(due(e)),allowWhileIdle:true}})),
     ...cls.map(c=>({channelId:chId(),id:numId(c.id+"c"),title:subjectName(c.subjectId)+" starts in "+cm+" min",body:(c.room?"Room "+c.room+" · ":"")+fmtTime(c.start),schedule:{on:classAlarm(c,cm),allowWhileIdle:true}}))];
    await LocalNotifications.schedule({notifications:list});
    saveReminderIds(list.map(n=>n.id));
-  }else if(evs.length&&await ensurePerm()){
+  }else if(evs.length&&await ensurePerm(false)){
    evs.filter(e=>due(e)-Date.now()<2147000000).forEach(e=>timers.push(setTimeout(()=>new Notification(e.title,{body:body(e),icon:"./icon-192.png"}),due(e)-Date.now())));
   }
  }catch(err){console.warn("Reminder sync failed",err);}
 }
 window.setClassRemind=v=>{data.classRemind=+v;save();shell()};
-window.testNotify=async()=>{
- try{
-  if(native)try{await mkChannel()}catch(e){}
-  if(!await ensurePerm()){alert("Notifications are blocked. Allow them for StudyFlow in Android Settings > Apps > StudyFlow > Notifications.");return;}
-  if(native)await LocalNotifications.schedule({notifications:[{channelId:chId(),id:1,title:"StudyFlow",body:"Notifications are working! 🎉",schedule:{at:new Date(Date.now()+5000),allowWhileIdle:true}}]});
-  else setTimeout(()=>new Notification("StudyFlow",{body:"Notifications are working! 🎉"}),5000);
- }catch(e){alert("Could not send: "+e.message)}
-};
 syncNotifications();
 
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)syncNotifications()});
@@ -447,7 +439,16 @@ window.startTour=()=>{tourI=0;tourBusy=false;if(!tourEl()){const t=document.crea
 function endTour(){tourEl()?.remove();window.removeEventListener("resize",showStep);data.tourDone=true;save();tourBusy=false}
 function changeTourStep(dir){if(tourBusy)return;const t=tourEl();if(!t)return;tourBusy=true;t.classList.remove("tour-step-in");t.classList.add("tour-step-out");const next=Math.max(0,Math.min(STEPS.length-1,tourI+dir));setTimeout(()=>{tourI=next;t.classList.remove("tour-step-out");showStep();setTimeout(()=>{tourBusy=false},360)},170)}
 function showStep(first=false){const t=tourEl();if(!t)return;const st=STEPS[tourI];const position=()=>{const spot=t.querySelector(".spot"),tip=t.querySelector(".tip"),el=tourTarget(st);t.querySelector("h3").textContent=st.t;t.querySelector("p").textContent=st.d;t.querySelector(".tcount").textContent=(tourI+1)+"/"+STEPS.length;t.querySelector(".tback").style.visibility=tourI?"visible":"hidden";t.querySelector(".tnext").textContent=tourI>=STEPS.length-1?"Done":"Next";if(!el){spot.style.display="none";tip.style.top=Math.max(14,(innerHeight-(tip.offsetHeight||180))/2)+"px";t.classList.add("tour-step-in");return}if(st.v&&st.v!==view){view=st.v;shell();setTimeout(position,420);return}if(st.place!=="header-below")el.scrollIntoView({block:"center",behavior:"instant"});requestAnimationFrame(()=>{const r=el.getBoundingClientRect(),p=8;Object.assign(spot.style,{display:"block",left:Math.max(6,r.left-p)+"px",top:Math.max(6,r.top-p)+"px",width:r.width+2*p+"px",height:r.height+2*p+"px"});const tipH=Math.min(tip.offsetHeight||180,Math.max(150,innerHeight*.30));tip.style.maxHeight=Math.max(150,innerHeight*.30)+"px";const safe=12,gap=14,header=st.place==="header-below"?document.querySelector(".top")?.getBoundingClientRect():null;let top;if(header){top=header.bottom+gap}else{top=innerHeight-tipH-safe;if(r.bottom+gap>top&&r.top-p-gap-tipH>=safe)top=r.top-p-gap-tipH}top=Math.max(safe,Math.min(innerHeight-tipH-safe,top));tip.style.top=top+"px";t.classList.add("tour-step-in")})};t.classList.remove("tour-step-in");if(st.v&&view!==st.v){view=st.v;shell();setTimeout(position,420)}else{requestAnimationFrame(()=>setTimeout(position,40))}}
-if(!data.tourDone)setTimeout(()=>startTour(),1900);
+if(!data.tourDone)setTimeout(async()=>{
+  // First launch: request the only permission StudyFlow needs up front (notifications), then begin the guide.
+  // The permission is requested only once on first launch; other permissions are requested only when their feature is used.
+  if(!data.permissionAsked){
+    await ensurePerm(true);
+    data.permissionAsked=true;
+    save();
+  }
+  startTour();
+},1900);
 
 window.openBackup=()=>modal("Backup & restore",`<p class="muted">Tap Copy and paste it somewhere safe (Notes, WhatsApp to yourself). To restore, paste it back below and tap Restore.</p><textarea id="bk" rows="7" style="width:100%">${esc(JSON.stringify(data))}</textarea><button type="button" class="primary wide" onclick="copyBackup()">Copy backup</button><button type="button" class="delete wide" onclick="restoreBackup()">Restore from text above</button>`);
 window.copyBackup=async()=>{const t=document.querySelector("#bk");try{await navigator.clipboard.writeText(t.value);alert("Copied!")}catch(e){t.select();alert("Select all and copy the text manually.")}};
@@ -502,7 +503,7 @@ window.openSound=async()=>{
  <div ${soundOn()?"":'style="opacity:.4;pointer-events:none"'}><p class="muted">Pick a sound and how long it plays.</p>
  <div id="sndlist">${["default",...list].map(n=>`<div class="setting snd"><span onclick="pickSound('${n}')">${cur===n?"●":"○"}</span><div onclick="pickSound('${n}')"><strong>${n==="default"?"Phone default":prettyS(n)}</strong></div>${n==="default"?"":`<button type="button" class="tiny" onclick="playSound('${n}')">▶</button>`}</div>`).join("")}</div>
  <p class="muted">Play for</p><div class="chips">${[10,15,20].map(d=>`<label class="chip"><input type="radio" name="sd" ${d===dur?"checked":""} onchange="setDur(${d})"><span>${d} sec</span></label>`).join("")}</div></div>
- ${native?`<button type="button" class="primary wide" onclick="testNotify()">Send test notification</button><p class="muted">Your phone must not be on silent or Do Not Disturb to hear it.</p>`:`<p class="muted">Custom sounds work in the installed Android app.</p>`}`)};
+ ${native?`<p class="muted">Reminders use your selected notification settings.</p>`:`<p class="muted">Custom sounds work in the installed Android app.</p>`}`)};
 
 // ---------- Animated intro / splash ----------
 (function(){
