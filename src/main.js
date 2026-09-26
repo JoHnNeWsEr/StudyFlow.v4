@@ -44,8 +44,26 @@ function greeting(){let h=new Date().getHours();return h<12?"Good morning":h<18?
 function subjectName(id){return data.subjects.find(s=>s.id===id)?.name||"No subject";}
 function icon(type){return ({Quiz:"✦",Exam:"◈",Oral:"◉",Project:"◇",Assignment:"✓",Other:"•"})[type]||"•";}
 
+const THEME_SYSTEM_BARS={
+ light:{status:"#6A49F5",nav:"#F7F7FB",lightStatus:false,lightNav:true},
+ dark:{status:"#30284F",nav:"#111114",lightStatus:false,lightNav:false},
+ midnight:{status:"#382A62",nav:"#100E18",lightStatus:false,lightNav:false},
+ ocean:{status:"#176080",nav:"#0B141C",lightStatus:false,lightNav:false},
+ forest:{status:"#236B4B",nav:"#0B1511",lightStatus:false,lightNav:false},
+ sunset:{status:"#B85B35",nav:"#17100C",lightStatus:false,lightNav:false},
+ rose:{status:"#A94C79",nav:"#160D14",lightStatus:false,lightNav:false},
+ minimal:{status:"#303030",nav:"#000000",lightStatus:false,lightNav:false}
+};
+function syncThemeSystemBars(){
+ const t=THEME_SYSTEM_BARS[data.theme]||THEME_SYSTEM_BARS.light;
+ try{
+  if(native&&StudyFlowFocus?.setSystemBars) StudyFlowFocus.setSystemBars({statusBarColor:t.status,navigationBarColor:t.nav,lightStatusBar:t.lightStatus,lightNavigationBar:t.lightNav});
+ }catch(e){}
+ const meta=document.querySelector('meta[name="theme-color"]'); if(meta) meta.setAttribute("content",t.status);
+}
 function shell(){
  document.documentElement.dataset.theme=data.theme;
+ syncThemeSystemBars();
  document.querySelector("#app").innerHTML=`
  <div class="app">
   <header class="top"><div class="hgrid"><div class="avatar" onclick="profile()">${data.profile.photo?`<img src="${data.profile.photo}" alt="">`:initials(data.profile.name)}</div>
@@ -195,7 +213,7 @@ function settings(){
  <div class="settinggroup"><h3>Reminders</h3><button class="setting notification-setting" onclick="toggleNotifications()"><span>🔔</span><div><strong>Notifications</strong><small>${data.notifications?"Enabled":"Disabled"}</small></div><b>${data.notifications?"ON":"OFF"}</b></button><label class="setting class-reminder-setting"><span>⏰</span><div><strong>Class reminder</strong><small>Before each class starts</small></div><select onchange="setClassRemind(this.value)">${[[0,"Off"],[5,"5 min"],[10,"10 min"],[15,"15 min"],[20,"20 min"],[30,"30 min"]].map(o=>`<option value="${o[0]}" ${(data.classRemind??10)==o[0]?"selected":""}>${o[1]}</option>`).join("")}</select></label><button class="setting sound-setting" onclick="openSound()"><span>🔊</span><div><strong>Notification sound</strong><small>${data.soundOn===false?"Off":data.sound&&data.sound!=="default"?prettyS(data.sound)+" · "+(data.soundDur||15)+" sec":"Phone default"}</small></div><b>›</b></button><button class="setting test-notification-setting" onclick="testNotify()"><span>🧪</span><div><strong>Send test notification</strong><small>Arrives in 5 seconds</small></div><b>TEST</b></button></div>
  <div class="settinggroup"><h3>Study tools</h3><button class="setting" onclick="openNotes()"><span>🗒️</span><div><strong>Notes</strong><small>${data.notes.length} saved note${data.notes.length===1?"":"s"}</small></div><b>›</b></button><button class="setting focus-setting" onclick="openGoals()"><span>🎯</span><div><strong>Study goals & focus</strong><small>${data.goals.filter(g=>!g.done).length} active goal${data.goals.filter(g=>!g.done).length===1?"":"s"} · Pomodoro</small></div><b>›</b></button><button class="setting" onclick="openSemester()"><span>🗃️</span><div><strong>Semester</strong><small>${esc(data.semester.name)} · ${esc(data.semester.schoolYear)}</small></div><b>›</b></button></div>
  <div class="settinggroup"><h3>Help</h3><button class="setting" onclick="startTour()"><span>🎓</span><div><strong>Replay tutorial</strong><small>A quick guided tour of the app</small></div><b>›</b></button></div><div class="settinggroup"><h3>Backup</h3><button class="setting backup-setting" onclick="openBackup()"><span>💾</span><div><strong>Backup &amp; restore</strong><small>Save or move your data</small></div><b>›</b></button></div><div class="settinggroup"><h3>Data</h3><button class="setting danger" onclick="resetData()"><span>↺</span><div><strong>Reset all data</strong><small>Remove subjects, classes and events</small></div><b>›</b></button></div>
- <p class="version">StudyFlow • v36</p></section>`;
+ <p class="version">StudyFlow • v37</p></section>`;
 }
 
 function modal(title,body){
@@ -262,8 +280,18 @@ window.saveGrade=e=>{e.preventDefault();data.grades.push({id:uid(),subjectId:gsu
 window.editGrade=id=>{let g=data.grades.find(x=>x.id===id);modal("Edit grade",`<form onsubmit="updateGrade(event,'${id}')"><label>Subject<select id="gsub">${subjectOptions(g.subjectId)}</select></label><label>Assessment<input id="glabel" value="${esc(g.label)}"></label><label>Score (%)<input id="gscore" type="number" min="0" max="100" step="0.01" value="${g.score}"></label><button class="primary wide">Save changes</button><button type="button" class="delete wide" onclick="deleteGrade('${id}')">Delete</button></form>`)};
 window.updateGrade=(e,id)=>{e.preventDefault();let g=data.grades.find(x=>x.id===id);Object.assign(g,{subjectId:gsub.value,label:glabel.value,score:+gscore.value});save();closeModal();openGrades()};
 window.deleteGrade=id=>{data.grades=data.grades.filter(g=>g.id!==id);save();closeModal();openGrades()};
-window.openGoals=()=>{const active=data.goals.filter(g=>!g.done);const history=data.goals.filter(g=>g.done).slice().sort((a,b)=>(b.completedAt||0)-(a.completedAt||0));const historyBody=history.length?history.map(g=>`<div class="card goalhistoryitem"><div class="grow"><strong>✓ ${esc(g.title)}</strong><span>${esc(g.target||"Completed goal")}</span><small>${g.completedAt?"Completed "+new Date(g.completedAt).toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"}):"Completed"}</small></div><button class="complete" onclick="toggleGoal('${g.id}',this)">Restore</button></div>`).join(""):`<div class="empty small"><strong>No completed goals yet</strong><span>Completed goals will appear here.</span></div>`;modal("Study goals & focus",`<div class="sectionhead"><h3>Active goals</h3><button onclick="addGoal()">＋ Goal</button></div>${active.length?active.map(g=>`<div class="card goalmini" data-id="${g.id}"><button class="chk goalcheck" aria-label="Mark goal complete" onclick="toggleGoal('${g.id}',this)"><span class="burst"></span><svg viewBox="0 0 24 24"><path d="M5 12l4.5 4.5L19 7.5"/></svg></button><div class="grow"><strong>${esc(g.title)}</strong><span>${esc(g.target||"")}</span></div><button class="dots" onclick="editGoal('${g.id}')">⋯</button></div>`).join(""):`<div class="empty small"><strong>No active study goals</strong><span>Set a small target and build momentum.</span></div>`}<div class="goalhistory"><div class="sectionhead"><div><h3>Completed history</h3><span class="muted">${history.length} completed</span></div>${history.length?`<button class="linkbtn historyview" onclick="toggleGoalHistory()">${goalHistoryOpen?"Hide":"View"}</button>`:""}</div>${goalHistoryOpen?`<div class="goalhistorylist">${historyBody}</div>`:`<div class="historysummary">${history.length?"Completed goals are saved here. Tap View to see the full history.":"Completed goals will appear here."}</div>`}</div><button class="primary wide" onclick="openFocus()">⏱ Start focus session</button>`) };
-window.toggleGoalHistory=()=>{goalHistoryOpen=!goalHistoryOpen;openGoals()};
+window.openGoals=()=>{const active=data.goals.filter(g=>!g.done);const history=data.goals.filter(g=>g.done).slice().sort((a,b)=>(b.completedAt||0)-(a.completedAt||0));const renderHistoryItem=g=>`<div class="card goalhistoryitem"><div class="grow"><strong>✓ ${esc(g.title)}</strong><span>${esc(g.target||"Completed goal")}</span><small>${g.completedAt?"Completed "+new Date(g.completedAt).toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"}):"Completed"}</small></div><button class="complete" onclick="toggleGoal('${g.id}',this)">Restore</button></div>`;const preview=history.slice(0,3);const visible=preview;const historyBody=history.length?visible.map(renderHistoryItem).join(""):``;const historyAction=history.length>3?`<button class="linkbtn historyview" onclick="toggleGoalHistory()">View all</button>`:"";modal("Study goals & focus",`<div class="sectionhead"><h3>Active goals</h3><button onclick="addGoal()">＋ Goal</button></div>${active.length?active.map(g=>`<div class="card goalmini" data-id="${g.id}"><button class="chk goalcheck" aria-label="Mark goal complete" onclick="toggleGoal('${g.id}',this)"><span class="burst"></span><svg viewBox="0 0 24 24"><path d="M5 12l4.5 4.5L19 7.5"/></svg></button><div class="grow"><strong>${esc(g.title)}</strong><span>${esc(g.target||"")}</span></div><button class="dots" onclick="editGoal('${g.id}')">⋯</button></div>`).join(""):``}<div class="goalhistory"><div class="sectionhead"><div><h3>Completed history</h3><span class="muted">${history.length} completed</span></div>${historyAction}</div>${history.length?`<div class="goalhistorylist preview">${historyBody}</div>`:`<div class="historysummary">No completed goals yet.</div>`}</div><button class="primary wide" onclick="openFocus()">⏱ Start focus session</button>`) };
+window.toggleGoalHistory=()=>{
+ const history=data.goals.filter(g=>g.done).slice().sort((a,b)=>(b.completedAt||0)-(a.completedAt||0));
+ if(!history.length)return;
+ const item=g=>`<div class="card goalhistoryitem"><div class="grow"><strong>✓ ${esc(g.title)}</strong><span>${esc(g.target||"Completed goal")}</span><small>${g.completedAt?"Completed "+new Date(g.completedAt).toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"}):"Completed"}</small></div><button class="complete" onclick="toggleGoalFromHistory('${g.id}')">Restore</button></div>`;
+ const el=document.createElement("div");el.className="historyoverlay";el.id="goalHistoryOverlay";
+ el.innerHTML=`<div class="historybackdrop" onclick="closeGoalHistory()"></div><div class="historydialog"><div class="modalhead"><div><h2>Completed goals</h2><small class="muted">${history.length} completed</small></div><button onclick="closeGoalHistory()">×</button></div><div class="historyfull">${history.map(item).join("")}</div></div>`;
+ document.body.appendChild(el);
+ requestAnimationFrame(()=>el.classList.add("historyoverlay-in"));
+};
+window.closeGoalHistory=()=>document.querySelector("#goalHistoryOverlay")?.remove();
+window.toggleGoalFromHistory=id=>{const g=data.goals.find(x=>x.id===id);if(!g)return;g.done=false;delete g.completedAt;save();closeGoalHistory();openGoals()};
 window.addGoal=()=>modal("New study goal",`<form onsubmit="saveGoal(event)"><label>Goal<input id="gotitle" required placeholder="Finish Chapter 3"></label><label>Target / detail<input id="gotarget" placeholder="By Friday"></label><button class="primary wide">Save goal</button></form>`);
 window.saveGoal=e=>{e.preventDefault();data.goals.push({id:uid(),title:gotitle.value,target:gotarget.value,done:false});save();closeModal();openGoals()};
 window.toggleGoal=(id,btn)=>{
@@ -398,93 +426,30 @@ syncNotifications();
 
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)syncNotifications()});
 
-// ---------- First-run guided tour (spotlight) ----------
+// ---------- Guided tutorial (v37: rebuilt positioning and targets) ----------
 const STEPS=[
- {t:"Welcome to StudyFlow 👋",d:"This guide walks you through the main features of StudyFlow. You can replay it anytime from Settings."},
- {v:"home",sel:".hgrid",place:"header-below",t:"Your day at a glance",d:"This header shows your greeting, profile and quick-add button. The guide card stays below the header so it never covers what you are learning about."},
- {v:"home",sel:".studygoalpanel",t:"Study & Goals",d:"Your active study goals live here. Mark a goal complete with the check circle, or use Focus beside a goal to start a timer for that exact goal."},
- {v:"home",sel:[".studygoalpanel .inlinefocus",".studygoalpanel .goalmini"],t:"Focus a specific goal",d:"Use Focus beside an unfinished goal to attach the timer to that exact goal. The live countdown appears beside it while running."},
- {v:"subjects",sel:".pagehead .primary",t:"Add your subjects",d:"Add a subject once with its teacher and room. StudyFlow can then reuse it throughout your schedule."},
- {v:"schedule",sel:".daystrip",t:"Your weekly schedule",d:"Choose a day here to view that day's classes. Use ＋ Class to add a class."},
- {v:"events",sel:".pagehead .primary",t:"Quizzes, exams & tasks",d:"Add quizzes, exams, assignments and other tasks with dates, times and reminders."},
- {v:"events",sel:[".eventcard:not(.done) .inlinefocus",".eventcard:not(.done)",".eventcard",".pagehead .primary"],t:"Focus a specific task",d:"Use the Focus button on an unfinished event to attach Focus to that exact task."},
- {v:"settings",sel:".notification-setting",t:"Notifications",d:"Turn StudyFlow notifications on or off here."},
- {v:"settings",sel:".class-reminder-setting",t:"Class reminders",d:"Choose 5, 10, 15, 20 or 30 minutes before each class. Android schedules these reminders even when StudyFlow is closed."},
- {v:"settings",sel:".theme-setting",t:"Appearance & themes",d:"Choose Light, Dark, Midnight, Ocean, Forest, Sunset, Rose or Minimal. Your choice is saved."},
- {v:"settings",sel:".backup-setting",t:"Keep your data safe",d:"Backup & restore lets you save or move your StudyFlow data. Your completed study-goal history stays in the app as part of your saved data."},
- {t:"You're all set! 🎉",d:"Start with a subject, add your schedule and set your first study goal. You can replay this guide from Settings anytime."}
+ {t:"Welcome to StudyFlow 👋",d:"A quick tour of the parts you will use most. Each tip highlights the exact area it is describing."},
+ {v:"home",sel:".hgrid",place:"header-below",t:"Your StudyFlow header",d:"This is your profile and quick-add area. The highlight stays on the header, while this guide card is placed underneath it."},
+ {v:"home",sel:".hero",place:"above",t:"Today at a glance",d:"See today's date and your current semester at a glance."},
+ {v:"home",sel:".studygoalpanel",t:"Study & Goals",d:"Your unfinished study goals appear here. Mark one complete with the check circle when you finish it."},
+ {v:"home",sel:".studygoalpanel .inlinefocus",t:"Focus one goal",d:"Tap Focus beside a goal to start a timer attached to that exact goal. The live countdown appears beside it."},
+ {v:"subjects",sel:".pagehead .primary",t:"Add your subjects",d:"Create a subject with its teacher and room. You can reuse it when building your class schedule."},
+ {v:"schedule",sel:".daystrip",t:"Weekly schedule",d:"Choose a day to see its classes. Add classes with the button at the top of the Schedule page."},
+ {v:"events",sel:".pagehead .primary",t:"Events and deadlines",d:"Add quizzes, exams, assignments and other tasks with dates, times and reminders."},
+ {v:"events",sel:".eventcard:not(.done) .inlinefocus",t:"Focus a task",d:"If an unfinished event has a Focus button, use it to attach the timer to that specific task."},
+ {v:"settings",sel:".class-reminder-setting",t:"Class reminders",d:"Choose Off, 5, 10, 15, 20 or 30 minutes before class. Android schedules the reminder for you."},
+ {v:"settings",sel:".theme-setting",t:"Change the look",d:"Open Theme to choose Light, Dark, Midnight, Ocean, Forest, Sunset, Rose or Minimal. The header changes with the selected theme too."},
+ {v:"settings",sel:".backup-setting",t:"Backup & restore",d:"Save your StudyFlow data as a backup and restore it later when you need it."},
+ {t:"You're all set! 🎉",d:"You can replay this tutorial anytime from Settings → Replay tutorial."}
 ];
 let tourI=0;
 function tourEl(){return document.getElementById("tour")}
 let tourBusy=false;
-function tourTarget(st){
- const sels=Array.isArray(st.sel)?st.sel:(st.sel?[st.sel]:[]);
- for(const sel of sels){const el=document.querySelector(sel);if(el)return el}
- return null;
-}
-window.startTour=()=>{tourI=0;tourBusy=false;if(!tourEl()){const t=document.createElement("div");t.id="tour";t.innerHTML='<div class="spot"></div><div class="tip"><h3></h3><p></p><div class="tbtns"><button class="tskip">Skip</button><span class="tcount"></span><button class="tback">Back</button><button class="tnext primary">Next</button></div></div>';document.body.appendChild(t);
- t.querySelector(".tskip").onclick=endTour;t.querySelector(".tback").onclick=()=>changeTourStep(-1);
- t.querySelector(".tnext").onclick=()=>tourI>=STEPS.length-1?endTour():changeTourStep(1);
- window.addEventListener("resize",showStep)}showStep(true)};
-function endTour(){tourEl()?.remove();window.removeEventListener("resize",showStep);data.tourDone=true;save();tourBusy=false;}
-function changeTourStep(dir){
- if(tourBusy)return;
- const t=tourEl();if(!t)return;
- tourBusy=true;
- t.classList.remove("tour-step-in");t.classList.add("tour-step-out");
- const next=Math.max(0,Math.min(STEPS.length-1,tourI+dir));
- setTimeout(()=>{
-  tourI=next;
-  t.classList.remove("tour-step-out");
-  showStep();
-  setTimeout(()=>{tourBusy=false},420);
- },190);
-}
-function showStep(first=false){
- const t=tourEl();if(!t)return;const st=STEPS[tourI];
- const position=()=>{
-  const spot=t.querySelector(".spot"),tip=t.querySelector(".tip"),el=tourTarget(st);
-  t.querySelector("h3").textContent=st.t;t.querySelector("p").textContent=st.d;
-  t.querySelector(".tcount").textContent=(tourI+1)+"/"+STEPS.length;
-  t.querySelector(".tback").style.visibility=tourI?"visible":"hidden";
-  t.querySelector(".tnext").textContent=tourI>=STEPS.length-1?"Done":"Next";
-  tip.style.top="";tip.style.bottom="";
-  if(el){
-   el.scrollIntoView({block:"center",behavior:"smooth"});
-   setTimeout(()=>{
-    const r=el.getBoundingClientRect(),p=8;
-    Object.assign(spot.style,{display:"block",left:Math.max(6,r.left-p)+"px",top:Math.max(6,r.top-p)+"px",width:r.width+2*p+"px",height:r.height+2*p+"px"});
-    // Keep the guide card away from the highlighted control. Header tips are placed below the whole header, not over it.
-    const tipH=tip.offsetHeight||170, gap=16, safeTop=12, safeBottom=innerHeight-12;
-    const anchor=st.place==="header-below"?(document.querySelector(".top")?.getBoundingClientRect()||r):r;
-    const belowTop=anchor.bottom+gap;
-    const spaceBelow=safeBottom-belowTop;
-    const spaceAbove=(r.top-p)-safeTop;
-    let top;
-    if(st.place==="header-below" && spaceBelow>=tipH) top=belowTop;
-    else if(spaceBelow>=tipH) top=r.bottom+p+gap;
-    else if(spaceAbove>=tipH) top=r.top-p-gap-tipH;
-    else top=Math.max(safeTop,Math.min(safeBottom-tipH,(innerHeight-tipH)/2));
-    top=Math.max(safeTop,Math.min(safeBottom-tipH,top));
-    tip.style.top=top+"px";
-    t.classList.add("tour-step-in");
-   },360);
-  }else{
-   spot.style.display="none";
-   const tipH=tip.offsetHeight||170;
-   tip.style.top=Math.max(12,(innerHeight-tipH)/2)+"px";
-   t.classList.add("tour-step-in");
-  }
- };
- t.classList.remove("tour-step-in");
- if(st.v&&view!==st.v){
-  view=st.v;
-  shell();
-  setTimeout(position,300);
- }else{
-  requestAnimationFrame(()=>setTimeout(position,40));
- }
-}
+function tourTarget(st){const sels=Array.isArray(st.sel)?st.sel:(st.sel?[st.sel]:[]);for(const sel of sels){const el=document.querySelector(sel);if(el)return el}return null}
+window.startTour=()=>{tourI=0;tourBusy=false;if(!tourEl()){const t=document.createElement("div");t.id="tour";t.innerHTML='<div class="spot"></div><div class="tip"><h3></h3><p></p><div class="tbtns"><button class="tskip">Skip</button><span class="tcount"></span><button class="tback">Back</button><button class="tnext primary">Next</button></div></div>';document.body.appendChild(t);t.querySelector(".tskip").onclick=endTour;t.querySelector(".tback").onclick=()=>changeTourStep(-1);t.querySelector(".tnext").onclick=()=>tourI>=STEPS.length-1?endTour():changeTourStep(1);window.addEventListener("resize",showStep)}showStep(true)};
+function endTour(){tourEl()?.remove();window.removeEventListener("resize",showStep);data.tourDone=true;save();tourBusy=false}
+function changeTourStep(dir){if(tourBusy)return;const t=tourEl();if(!t)return;tourBusy=true;t.classList.remove("tour-step-in");t.classList.add("tour-step-out");const next=Math.max(0,Math.min(STEPS.length-1,tourI+dir));setTimeout(()=>{tourI=next;t.classList.remove("tour-step-out");showStep();setTimeout(()=>{tourBusy=false},360)},170)}
+function showStep(first=false){const t=tourEl();if(!t)return;const st=STEPS[tourI];const position=()=>{const spot=t.querySelector(".spot"),tip=t.querySelector(".tip"),el=tourTarget(st);t.querySelector("h3").textContent=st.t;t.querySelector("p").textContent=st.d;t.querySelector(".tcount").textContent=(tourI+1)+"/"+STEPS.length;t.querySelector(".tback").style.visibility=tourI?"visible":"hidden";t.querySelector(".tnext").textContent=tourI>=STEPS.length-1?"Done":"Next";if(!el){spot.style.display="none";tip.style.top=Math.max(14,(innerHeight-(tip.offsetHeight||180))/2)+"px";t.classList.add("tour-step-in");return}if(st.v&&st.v!==view){view=st.v;shell();setTimeout(position,420);return}if(st.place!=="header-below")el.scrollIntoView({block:"center",behavior:"instant"});requestAnimationFrame(()=>{const r=el.getBoundingClientRect(),p=8;Object.assign(spot.style,{display:"block",left:Math.max(6,r.left-p)+"px",top:Math.max(6,r.top-p)+"px",width:r.width+2*p+"px",height:r.height+2*p+"px"});const tipH=Math.min(tip.offsetHeight||180,Math.max(150,innerHeight*.30));tip.style.maxHeight=Math.max(150,innerHeight*.30)+"px";const safe=12,gap=14,header=st.place==="header-below"?document.querySelector(".top")?.getBoundingClientRect():null;let top;if(header){top=header.bottom+gap}else if(st.place==="above"){top=r.top-p-gap-tipH}else{top=innerHeight-tipH-safe;if(r.bottom+gap>top&&r.top-p-gap-tipH>=safe)top=r.top-p-gap-tipH}top=Math.max(safe,Math.min(innerHeight-tipH-safe,top));tip.style.top=top+"px";t.classList.add("tour-step-in")})};t.classList.remove("tour-step-in");if(st.v&&view!==st.v){view=st.v;shell();setTimeout(position,420)}else{requestAnimationFrame(()=>setTimeout(position,40))}}
 if(!data.tourDone)setTimeout(()=>startTour(),1900);
 
 window.openBackup=()=>modal("Backup & restore",`<p class="muted">Tap Copy and paste it somewhere safe (Notes, WhatsApp to yourself). To restore, paste it back below and tap Restore.</p><textarea id="bk" rows="7" style="width:100%">${esc(JSON.stringify(data))}</textarea><button type="button" class="primary wide" onclick="copyBackup()">Copy backup</button><button type="button" class="delete wide" onclick="restoreBackup()">Restore from text above</button>`);

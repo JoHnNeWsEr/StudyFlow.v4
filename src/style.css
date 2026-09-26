@@ -211,3 +211,25 @@ html[data-theme="dark"] .top::before,html[data-theme="dark"] .top::after,html[da
 .goalhistory{margin-top:18px}.goalhistory .sectionhead{margin-top:18px}.goalhistoryitem{display:flex;align-items:center;gap:10px}.goalhistoryitem .complete{padding:8px 11px;font-size:12px;flex:none}.goalhistoryitem small{display:block;color:#999;font-size:11px;margin-top:5px}.goalhistory .sectionhead>div{min-width:0}.historyview{width:auto!important;margin:0!important;padding:7px 12px!important;font-size:12px!important}.historysummary{padding:12px 14px;border:1px dashed var(--line,#e7e5ef);border-radius:14px;color:var(--muted,#888);font-size:12px;line-height:1.45}.goalhistorylist{max-height:38vh;overflow:auto;padding:2px 2px 4px}.goalhistorylist .goalhistoryitem{margin-bottom:9px}.goalhistorylist .goalhistoryitem:last-child{margin-bottom:0}
 /* v35 tutorial positioning */
 #tour .tip{max-height:calc(100vh - 24px);overflow:auto}
+
+/* v37 tutorial rebuild: stable card placement with header-safe positioning */
+#tour{z-index:20000!important;isolation:isolate;pointer-events:none}
+#tour .spot{z-index:1}
+#tour .tip{z-index:3;pointer-events:auto;max-height:30vh;overflow:auto}
+#tour .tbtns{position:relative;z-index:4}
+#tour .tip h3,#tour .tip p{position:relative;z-index:1}
+@media(max-width:380px){#tour .tip{left:12px;right:12px;max-height:34vh;padding:15px}#tour .tip h3{font-size:17px}#tour .tip p{font-size:13.5px}}
+/* v37 completed history: show a compact three-item preview, then expand in the goals modal */
+.goalhistorylist.preview{max-height:none;overflow:visible}.goalhistorylist.expanded{max-height:52vh;overflow:auto;padding-right:3px}.goalhistorylist .goalhistoryitem{margin-bottom:9px}.goalhistorylist .goalhistoryitem:last-child{margin-bottom:0}
+
+/* v38: completed-goal history opens as a centered dialog over the screen */
+.historyoverlay{position:fixed;inset:0;z-index:12000;display:flex;align-items:center;justify-content:center;padding:18px;opacity:0;transition:opacity .18s ease}
+.historyoverlay-in{opacity:1}
+.historybackdrop{position:absolute;inset:0;background:rgba(0,0,0,.58);backdrop-filter:blur(5px)}
+.historydialog{position:relative;z-index:1;width:min(620px,100%);max-height:min(78vh,680px);overflow:hidden;background:var(--card,#fff);color:inherit;border:1px solid var(--line,#e7e5ef);border-radius:24px;padding:18px;box-shadow:0 24px 80px rgba(0,0,0,.28);transform:translateY(10px) scale(.98);transition:transform .2s ease}
+.historyoverlay-in .historydialog{transform:translateY(0) scale(1)}
+.historyfull{max-height:calc(min(78vh,680px) - 78px);overflow:auto;padding:2px 2px 4px}
+.historyfull .goalhistoryitem{margin-bottom:9px}
+.historyfull .goalhistoryitem:last-child{margin-bottom:0}
+html[data-theme="dark"] .historydialog,html[data-theme="midnight"] .historydialog,html[data-theme="ocean"] .historydialog,html[data-theme="forest"] .historydialog,html[data-theme="sunset"] .historydialog,html[data-theme="rose"] .historydialog,html[data-theme="minimal"] .historydialog{background:var(--card,#151515);border-color:var(--line,#303030)}
+@media(max-width:380px){.historyoverlay{padding:12px}.historydialog{border-radius:20px;padding:15px}}

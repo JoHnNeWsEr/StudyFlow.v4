@@ -17,7 +17,7 @@ android {
 }
 '''
 open(p, "w").write(g)
-# 2) keep the app BELOW the status bar / notch (no drawing under it) and colour the bar purple
+# 2) keep the app BELOW the status bar / notch (no drawing under it); JS updates the system bars to match the selected theme
 sp = "android/app/src/main/res/values/styles.xml"
 s = open(sp).read()
 items = '''

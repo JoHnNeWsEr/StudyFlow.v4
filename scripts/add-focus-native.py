@@ -66,6 +66,24 @@ public class StudyFlowFocusPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void setSystemBars(PluginCall call) {
+        String status = call.getString("statusBarColor", "#6A49F5");
+        String nav = call.getString("navigationBarColor", "#F7F7FB");
+        boolean lightStatus = call.getBoolean("lightStatusBar", false);
+        boolean lightNav = call.getBoolean("lightNavigationBar", true);
+        try {
+            android.view.Window w = getActivity().getWindow();
+            w.setStatusBarColor(android.graphics.Color.parseColor(status));
+            w.setNavigationBarColor(android.graphics.Color.parseColor(nav));
+            int flags = 0;
+            if (lightStatus && android.os.Build.VERSION.SDK_INT >= 23) flags |= android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            if (lightNav && android.os.Build.VERSION.SDK_INT >= 26) flags |= android.view.View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+            w.getDecorView().setSystemUiVisibility(flags);
+            call.resolve();
+        } catch (Exception e) { call.reject("Unable to update system bars", e); }
+    }
+
+    @PluginMethod
     public void stop(PluginCall call) {
         NotificationManager nm = (NotificationManager) getContext().getSystemService(Context.NOTIFICATION_SERVICE);
         nm.cancel(ID);
