@@ -27,7 +27,7 @@ let data=JSON.parse(store.get(KEY)||"null")||{
   academicDates:[],
   semester:{name:"1st Semester",schoolYear:"2026–2027"}
 };
-data.notes=data.notes||[]; data.goals=data.goals||[]; data.grades=data.grades||[]; data.academicDates=data.academicDates||[]; data.semester=data.semester||{name:"1st Semester",schoolYear:"2026–2027"};
+data.notes=data.notes||[]; data.goals=data.goals||[]; data.grades=data.grades||[]; data.academicDates=data.academicDates||[]; data.semester=data.semester||{name:"1st Semester",schoolYear:"2026–2027"}; data.theme=data.theme||"light";
 let view="home";
 
 function save(){store.set(KEY,JSON.stringify(data));try{autoBackup()}catch(e){}try{syncNotifications()}catch(e){}}
@@ -191,15 +191,16 @@ function subjects(){
 function settings(){
  return `<section class="page"><div class="pagehead"><div><span class="muted">PREFERENCES</span><h2>Settings</h2></div></div>
  <div class="settinggroup"><h3>Profile</h3><button class="setting" onclick="profile()"><span>${data.profile.photo?`<img class="pthumb" src="${data.profile.photo}" alt="">`:"👤"}</span><div><strong>${esc(data.profile.name||"Your profile")}</strong><small>${esc(data.profile.school||"Add your school information")}</small></div><b>›</b></button></div>
- <div class="settinggroup"><h3>Appearance</h3><button class="setting" onclick="toggleTheme()"><span>◐</span><div><strong>Theme</strong><small>${data.theme==="light"?"Light":"Dark"}</small></div><b>›</b></button></div>
- <div class="settinggroup"><h3>Reminders</h3><button class="setting" onclick="toggleNotifications()"><span>🔔</span><div><strong>Notifications</strong><small>${data.notifications?"Enabled":"Disabled"}</small></div><b>${data.notifications?"ON":"OFF"}</b></button><label class="setting"><span>⏰</span><div><strong>Class reminder</strong><small>Before each class starts</small></div><select onchange="setClassRemind(this.value)">${[[0,"Off"],[5,"5 min"],[10,"10 min"],[15,"15 min"],[30,"30 min"]].map(o=>`<option value="${o[0]}" ${(data.classRemind??10)==o[0]?"selected":""}>${o[1]}</option>`).join("")}</select></label><button class="setting" onclick="openSound()"><span>🔊</span><div><strong>Notification sound</strong><small>${data.soundOn===false?"Off":data.sound&&data.sound!=="default"?prettyS(data.sound)+" · "+(data.soundDur||15)+" sec":"Phone default"}</small></div><b>›</b></button><button class="setting" onclick="testNotify()"><span>🧪</span><div><strong>Send test notification</strong><small>Arrives in 5 seconds</small></div><b>TEST</b></button></div>
+ <div class="settinggroup"><h3>Appearance</h3><button class="setting" onclick="openThemes()"><span>◐</span><div><strong>Theme</strong><small>${themeName(data.theme)}</small></div><b>›</b></button></div>
+ <div class="settinggroup"><h3>Reminders</h3><button class="setting" onclick="toggleNotifications()"><span>🔔</span><div><strong>Notifications</strong><small>${data.notifications?"Enabled":"Disabled"}</small></div><b>${data.notifications?"ON":"OFF"}</b></button><label class="setting"><span>⏰</span><div><strong>Class reminder</strong><small>Before each class starts</small></div><select onchange="setClassRemind(this.value)">${[[0,"Off"],[5,"5 min"],[10,"10 min"],[15,"15 min"],[20,"20 min"],[30,"30 min"]].map(o=>`<option value="${o[0]}" ${(data.classRemind??10)==o[0]?"selected":""}>${o[1]}</option>`).join("")}</select></label><button class="setting" onclick="openSound()"><span>🔊</span><div><strong>Notification sound</strong><small>${data.soundOn===false?"Off":data.sound&&data.sound!=="default"?prettyS(data.sound)+" · "+(data.soundDur||15)+" sec":"Phone default"}</small></div><b>›</b></button><button class="setting" onclick="testNotify()"><span>🧪</span><div><strong>Send test notification</strong><small>Arrives in 5 seconds</small></div><b>TEST</b></button></div>
  <div class="settinggroup"><h3>Study tools</h3><button class="setting" onclick="openNotes()"><span>🗒️</span><div><strong>Notes</strong><small>${data.notes.length} saved note${data.notes.length===1?"":"s"}</small></div><b>›</b></button><button class="setting" onclick="openGoals()"><span>🎯</span><div><strong>Study goals & focus</strong><small>${data.goals.filter(g=>!g.done).length} active goal${data.goals.filter(g=>!g.done).length===1?"":"s"} · Pomodoro</small></div><b>›</b></button><button class="setting" onclick="openSemester()"><span>🗃️</span><div><strong>Semester</strong><small>${esc(data.semester.name)} · ${esc(data.semester.schoolYear)}</small></div><b>›</b></button></div>
  <div class="settinggroup"><h3>Help</h3><button class="setting" onclick="startTour()"><span>🎓</span><div><strong>Replay tutorial</strong><small>A quick guided tour of the app</small></div><b>›</b></button></div><div class="settinggroup"><h3>Backup</h3><button class="setting" onclick="openBackup()"><span>💾</span><div><strong>Backup &amp; restore</strong><small>Save or move your data</small></div><b>›</b></button></div><div class="settinggroup"><h3>Data</h3><button class="setting danger" onclick="resetData()"><span>↺</span><div><strong>Reset all data</strong><small>Remove subjects, classes and events</small></div><b>›</b></button></div>
- <p class="version">StudyFlow • v22</p></section>`;
+ <p class="version">StudyFlow • v32</p></section>`;
 }
 
 function modal(title,body){
- let el=document.createElement("div");el.className="modalwrap";el.id="modal";el.innerHTML=`<div class="backdrop" onclick="closeModal()"></div><div class="modal"><div class="modalhead"><h2>${title}</h2><button onclick="closeModal()">×</button></div>${body}</div>`;document.body.appendChild(el);
+ let el=document.createElement("div");el.className="modalwrap modal-transition";el.id="modal";el.innerHTML=`<div class="backdrop" onclick="closeModal()"></div><div class="modal"><div class="modalhead"><h2>${title}</h2><button onclick="closeModal()">×</button></div>${body}</div>`;document.body.appendChild(el);
+ requestAnimationFrame(()=>requestAnimationFrame(()=>el.classList.add("modal-transition-in")));
  el.querySelectorAll("form").forEach(f=>f.addEventListener("click",ev=>{
   let b=ev.target.closest("button");
   if(!b||b.type!=="submit")return;
@@ -315,7 +316,20 @@ window.openSemester=()=>modal("Semester management",`<form onsubmit="saveSemeste
 window.saveSemester=e=>{e.preventDefault();data.semester={name:semname.value,schoolYear:semyear.value};save();closeModal();shell()};
 window.profile=()=>modal("Your profile",`<div class="pavatar"><div class="pav">${data.profile.photo?`<img src="${data.profile.photo}" alt="">`:`<span>${initials(data.profile.name)}</span>`}</div><div class="pavbtns"><button type="button" class="primary" onclick="document.querySelector('#pphoto').click()">📷 ${data.profile.photo?"Change":"Add"} photo</button>${data.profile.photo?`<button type="button" class="delete" onclick="removePhoto()">Remove</button>`:""}</div><input id="pphoto" type="file" accept="image/*" hidden onchange="setPhoto(this.files[0])"></div><form onsubmit="saveProfile(event)"><label>Name<input id="pname" value="${esc(data.profile.name)}" placeholder="Your name"></label><label>School<input id="pschool" value="${esc(data.profile.school)}" placeholder="School name"></label><label>Grade / Year<input id="pgrade" value="${esc(data.profile.grade)}" placeholder="Grade 10"></label><button class="primary wide">Save profile</button></form>`);
 window.saveProfile=e=>{e.preventDefault();data.profile={...data.profile,name:pname.value,school:pschool.value,grade:pgrade.value};save();closeModal();shell()};
-window.toggleTheme=()=>{data.theme=data.theme==="light"?"dark":"light";save();shell()};
+const THEME_OPTIONS=[
+ {id:"light",icon:"☀️",name:"Light",desc:"Clean and bright"},
+ {id:"dark",icon:"🌙",name:"Dark",desc:"Classic dark mode"},
+ {id:"midnight",icon:"🌌",name:"Midnight",desc:"Deep purple night"},
+ {id:"ocean",icon:"🌊",name:"Ocean",desc:"Cool blue focus"},
+ {id:"forest",icon:"🌲",name:"Forest",desc:"Calm emerald green"},
+ {id:"sunset",icon:"🌅",name:"Sunset",desc:"Warm amber energy"},
+ {id:"rose",icon:"🌸",name:"Rose",desc:"Plum and pink"},
+ {id:"minimal",icon:"⚫",name:"Minimal",desc:"Black, white and gray"}
+];
+function themeName(id){return THEME_OPTIONS.find(t=>t.id===id)?.name||"Light"}
+window.openThemes=()=>modal("Choose a theme",`<div class="themegrid">${THEME_OPTIONS.map(t=>`<button class="themecard ${data.theme===t.id?"selected":""}" onclick="setTheme('${t.id}')"><span class="themeicon theme-${t.id}">${t.icon}</span><span class="grow"><strong>${t.name}</strong><small>${t.desc}</small></span>${data.theme===t.id?'<b>✓</b>':'<b>›</b>'}</button>`).join("")} </div>`);
+window.setTheme=id=>{data.theme=THEME_OPTIONS.some(t=>t.id===id)?id:"light";save();closeModal();shell()};
+window.toggleTheme=()=>openThemes();
 window.toggleNotifications=()=>{data.notifications=!data.notifications;save();shell()};
 window.resetData=()=>{if(confirm("Reset all StudyFlow data?")){store.del(KEY);data={profile:{name:"",school:"",grade:""},subjects:[],classes:[],events:[],theme:"light",notifications:true,notes:[],goals:[],grades:[],academicDates:[],semester:{name:"1st Semester",schoolYear:"2026–2027"}};view="home";shell()}};
 
@@ -330,7 +344,10 @@ window.go=go;window.selectDay=selectDay;window.filterEvents=filterEvents;window.
 // Reminders: native Android notifications via Capacitor; browser fallback while the page is open.
 const native=Capacitor.isNativePlatform();
 let timers=[];
+const REMINDER_IDS_KEY="STUDYFLOW_REMINDER_IDS";
 function numId(str){let h=0;for(const c of str)h=(h*31+c.charCodeAt(0))|0;return Math.abs(h)%2000000000+1;}
+function reminderIds(){try{return JSON.parse(localStorage.getItem(REMINDER_IDS_KEY)||"[]").filter(Number.isInteger);}catch{return[];}}
+function saveReminderIds(ids){try{localStorage.setItem(REMINDER_IDS_KEY,JSON.stringify([...new Set(ids)]));}catch{}}
 function due(e){return new Date(e.date+"T"+e.time+":00").getTime()-e.reminder*60000;}
 function body(e){return `${e.type} · ${subjectName(e.subjectId)} · ${fmtTime(e.time)}`;}
 const WD=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
@@ -352,14 +369,15 @@ async function syncNotifications(){
  const cls=on&&cm>0?data.classes.filter(c=>c.day&&c.start&&WD.includes(c.day)):[];
  try{
   if(native){
-   const pending=await LocalNotifications.getPending();
-   if(pending.notifications.length)await LocalNotifications.cancel({notifications:pending.notifications.map(n=>({id:n.id}))});
-   if(!evs.length&&!cls.length)return;
-   if(!await ensurePerm())return;
+   const oldIds=reminderIds();
+   if(oldIds.length)await LocalNotifications.cancel({notifications:oldIds.map(id=>({id}))});
+   if(!evs.length&&!cls.length){saveReminderIds([]);return;}
+   if(!await ensurePerm()){saveReminderIds([]);return;}
    try{await mkChannel()}catch(e){}
    const list=[...evs.map(e=>({channelId:chId(),id:numId(e.id),title:e.title,body:body(e),schedule:{at:new Date(due(e)),allowWhileIdle:true}})),
     ...cls.map(c=>({channelId:chId(),id:numId(c.id+"c"),title:subjectName(c.subjectId)+" starts in "+cm+" min",body:(c.room?"Room "+c.room+" · ":"")+fmtTime(c.start),schedule:{on:classAlarm(c,cm),allowWhileIdle:true}}))];
    await LocalNotifications.schedule({notifications:list});
+   saveReminderIds(list.map(n=>n.id));
   }else if(evs.length&&await ensurePerm()){
    evs.filter(e=>due(e)-Date.now()<2147000000).forEach(e=>timers.push(setTimeout(()=>new Notification(e.title,{body:body(e),icon:"./icon-192.png"}),due(e)-Date.now())));
   }
@@ -387,7 +405,7 @@ const STEPS=[
  {v:"subjects",sel:".pagehead .primary",t:"Subjects",d:"Type the name, teacher and room once, then pick the days and times. StudyFlow reuses the subject in your schedule."},
  {v:"schedule",sel:".daystrip",t:"Your weekly schedule",d:"Tap a day to see its classes. Use ＋ Class to add or edit your schedule."},
  {v:"events",sel:".pagehead .primary",t:"Quizzes, exams & tasks",d:"Add events with dates, times and reminders. Tap the centered check circle to mark one done; the button gives a small push/bounce animation."},
- {v:"events",sel:".eventcard",t:"Focus a specific task",d:"Tap ⏱ beside an unfinished task to attach a Focus session to that exact task. The countdown stays visible beside it."},
+ {v:"events",sel:[".eventcard:not(.done)",".eventcard",".pagehead"],t:"Focus a specific task",d:"Tap ⏱ beside an unfinished task to attach a Focus session to that exact task. The countdown stays visible beside it."},
  {v:"settings",sel:'[onclick="toggleNotifications()"]',t:"Notifications",d:"Enable notifications, choose reminder timing and sound, and use Send test notification to confirm your phone can receive StudyFlow alerts."},
  {v:"settings",sel:'[onclick="openGoals()"]',t:"Focus keeps running",d:"Focus uses a real end time, so leaving StudyFlow, opening another app, minimizing it or closing it will not reset the session. Android sends the completion notification when the time is reached."},
  {v:"settings",sel:'[onclick="openBackup()"]',t:"Keep your data safe",d:"Backup & restore lets you save your subjects, classes, events, goals and other StudyFlow data so you can restore them later."},
@@ -395,33 +413,57 @@ const STEPS=[
 ]
 let tourI=0;
 function tourEl(){return document.getElementById("tour")}
-window.startTour=()=>{tourI=0;if(!tourEl()){const t=document.createElement("div");t.id="tour";t.innerHTML='<div class="spot"></div><div class="tip"><h3></h3><p></p><div class="tbtns"><button class="tskip">Skip</button><span class="tcount"></span><button class="tback">Back</button><button class="tnext primary">Next</button></div></div>';document.body.appendChild(t);
- t.querySelector(".tskip").onclick=endTour;t.querySelector(".tback").onclick=()=>{tourI=Math.max(0,tourI-1);showStep()};
- t.querySelector(".tnext").onclick=()=>{tourI>=STEPS.length-1?endTour():(tourI++,showStep())};
- window.addEventListener("resize",showStep)}showStep()};
-function endTour(){tourEl()?.remove();window.removeEventListener("resize",showStep);data.tourDone=true;save();}
-function showStep(){
+let tourBusy=false;
+function tourTarget(st){
+ const sels=Array.isArray(st.sel)?st.sel:(st.sel?[st.sel]:[]);
+ for(const sel of sels){const el=document.querySelector(sel);if(el)return el}
+ return null;
+}
+window.startTour=()=>{tourI=0;tourBusy=false;if(!tourEl()){const t=document.createElement("div");t.id="tour";t.innerHTML='<div class="spot"></div><div class="tip"><h3></h3><p></p><div class="tbtns"><button class="tskip">Skip</button><span class="tcount"></span><button class="tback">Back</button><button class="tnext primary">Next</button></div></div>';document.body.appendChild(t);
+ t.querySelector(".tskip").onclick=endTour;t.querySelector(".tback").onclick=()=>changeTourStep(-1);
+ t.querySelector(".tnext").onclick=()=>tourI>=STEPS.length-1?endTour():changeTourStep(1);
+ window.addEventListener("resize",showStep)}showStep(true)};
+function endTour(){tourEl()?.remove();window.removeEventListener("resize",showStep);data.tourDone=true;save();tourBusy=false;}
+function changeTourStep(dir){
+ if(tourBusy)return;
+ const t=tourEl();if(!t)return;
+ tourBusy=true;
+ t.classList.remove("tour-step-in");t.classList.add("tour-step-out");
+ const next=Math.max(0,Math.min(STEPS.length-1,tourI+dir));
+ setTimeout(()=>{
+  tourI=next;
+  t.classList.remove("tour-step-out");
+  showStep();
+  setTimeout(()=>{tourBusy=false},420);
+ },190);
+}
+function showStep(first=false){
  const t=tourEl();if(!t)return;const st=STEPS[tourI];
  const position=()=>{
-  const spot=t.querySelector(".spot"),tip=t.querySelector(".tip"),el=st.sel&&document.querySelector(st.sel);
+  const spot=t.querySelector(".spot"),tip=t.querySelector(".tip"),el=tourTarget(st);
   t.querySelector("h3").textContent=st.t;t.querySelector("p").textContent=st.d;
   t.querySelector(".tcount").textContent=(tourI+1)+"/"+STEPS.length;
   t.querySelector(".tback").style.visibility=tourI?"visible":"hidden";
   t.querySelector(".tnext").textContent=tourI>=STEPS.length-1?"Done":"Next";
   tip.style.top=tip.style.bottom="";
   if(el){
-   el.scrollIntoView({block:"center",behavior:"instant"});
-   requestAnimationFrame(()=>{
-    const r=el.getBoundingClientRect(),p=6;
+   el.scrollIntoView({block:"center",behavior:"smooth"});
+   setTimeout(()=>{
+    const r=el.getBoundingClientRect(),p=7;
     Object.assign(spot.style,{display:"block",left:r.left-p+"px",top:r.top-p+"px",width:r.width+2*p+"px",height:r.height+2*p+"px"});
     if(r.top+r.height/2>innerHeight/2)tip.style.bottom=innerHeight-r.top+18+"px";else tip.style.top=r.bottom+18+"px";
-   });
-  }else{spot.style.display="none";tip.style.top=Math.max(40,innerHeight/2-110)+"px";}
+    t.classList.add("tour-step-in");
+   },170);
+  }else{
+   spot.style.display="none";tip.style.top=Math.max(40,innerHeight/2-110)+"px";
+   t.classList.add("tour-step-in");
+  }
  };
+ t.classList.remove("tour-step-in");
  if(st.v&&view!==st.v){
   view=st.v;
   shell();
-  setTimeout(position,30);
+  setTimeout(position,90);
  }else{
   requestAnimationFrame(position);
  }
