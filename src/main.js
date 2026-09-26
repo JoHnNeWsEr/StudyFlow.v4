@@ -411,7 +411,8 @@ const STEPS=[
  {v:"settings",sel:".theme-setting",t:"Appearance & themes",d:"Choose Light, Dark, Midnight, Ocean, Forest, Sunset, Rose or Minimal. Your choice is saved."},
  {v:"settings",sel:".backup-setting",t:"Keep your data safe",d:"Backup & restore lets you save or move your StudyFlow data. Your completed study-goal history stays in the app as part of your saved data."},
  {t:"You're all set! 🎉",d:"Start with a subject, add your schedule and set your first study goal. You can replay this guide from Settings anytime."}
-]let tourI=0;
+];
+let tourI=0;
 function tourEl(){return document.getElementById("tour")}
 let tourBusy=false;
 function tourTarget(st){
