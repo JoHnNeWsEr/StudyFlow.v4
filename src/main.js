@@ -382,13 +382,13 @@ document.addEventListener("visibilitychange",()=>{if(!document.hidden)syncNotifi
 const STEPS=[
  {t:"Welcome to StudyFlow 👋",d:"This guide is updated with the latest StudyFlow features. It appears when you start the app, and you can also replay it from Settings."},
  {v:"home",sel:".top",t:"Your day at a glance",d:"Home shows today's classes, progress and your Study & Goals card. Tap your photo circle to add a profile picture."},
- {v:"home",sel:".studygoalpanel",t:"Study & Goals",d:"Your goals live here. Use the check circle to mark a goal done, or tap Focus to start a timer for that specific goal."},
- {v:"home",sel:".inlinefocus",t:"Live Focus timer",d:"When a Focus session is running, its live countdown stays beside the exact goal or task you selected."},
+ {v:"home",sel:".studygoalpanel",t:"Study & Goals",d:"Your goals live here. Use the check circle to mark a goal done, or tap Focus beside a goal to start a timer for that specific goal."},
+ {v:"home",sel:".studygoalpanel",t:"Live Focus timer",d:"When a Focus session is running, its live countdown appears beside the exact goal you selected. This step highlights the whole goal area so it still works when no goal is currently active."},
  {v:"subjects",sel:".pagehead .primary",t:"Subjects",d:"Type the name, teacher and room once, then pick the days and times. StudyFlow reuses the subject in your schedule."},
  {v:"schedule",sel:".daystrip",t:"Your weekly schedule",d:"Tap a day to see its classes. Use ＋ Class to add or edit your schedule."},
  {v:"events",sel:".pagehead .primary",t:"Quizzes, exams & tasks",d:"Add events with dates, times and reminders. Tap the centered check circle to mark one done; the button gives a small push/bounce animation."},
- {v:"events",sel:".inlinefocus",t:"Focus a specific task",d:"Tap ⏱ beside an unfinished task to attach a Focus session to that exact task. The countdown stays visible beside it."},
- {v:"settings",sel:".settinggroup",t:"Notifications",d:"Enable notifications, choose reminder timing and sound, and use Send test notification to confirm your phone can receive StudyFlow alerts."},
+ {v:"events",sel:".eventcard",t:"Focus a specific task",d:"Tap ⏱ beside an unfinished task to attach a Focus session to that exact task. The countdown stays visible beside it."},
+ {v:"settings",sel:'[onclick="toggleNotifications()"]',t:"Notifications",d:"Enable notifications, choose reminder timing and sound, and use Send test notification to confirm your phone can receive StudyFlow alerts."},
  {v:"settings",sel:'[onclick="openGoals()"]',t:"Focus keeps running",d:"Focus uses a real end time, so leaving StudyFlow, opening another app, minimizing it or closing it will not reset the session. Android sends the completion notification when the time is reached."},
  {v:"settings",sel:'[onclick="openBackup()"]',t:"Keep your data safe",d:"Backup & restore lets you save your subjects, classes, events, goals and other StudyFlow data so you can restore them later."},
  {t:"You're all set! 🎉",d:"Start with a subject, add your schedule and set your first study goal. You can replay this guide from Settings anytime."}
@@ -402,8 +402,7 @@ window.startTour=()=>{tourI=0;if(!tourEl()){const t=document.createElement("div"
 function endTour(){tourEl()?.remove();window.removeEventListener("resize",showStep);data.tourDone=true;save();}
 function showStep(){
  const t=tourEl();if(!t)return;const st=STEPS[tourI];
- if(st.v&&view!==st.v)go(st.v);
- requestAnimationFrame(()=>{
+ const position=()=>{
   const spot=t.querySelector(".spot"),tip=t.querySelector(".tip"),el=st.sel&&document.querySelector(st.sel);
   t.querySelector("h3").textContent=st.t;t.querySelector("p").textContent=st.d;
   t.querySelector(".tcount").textContent=(tourI+1)+"/"+STEPS.length;
@@ -411,12 +410,21 @@ function showStep(){
   t.querySelector(".tnext").textContent=tourI>=STEPS.length-1?"Done":"Next";
   tip.style.top=tip.style.bottom="";
   if(el){
-   el.scrollIntoView({block:"center"});
-   const r=el.getBoundingClientRect(),p=6;
-   Object.assign(spot.style,{display:"block",left:r.left-p+"px",top:r.top-p+"px",width:r.width+2*p+"px",height:r.height+2*p+"px"});
-   if(r.top+r.height/2>innerHeight/2)tip.style.bottom=innerHeight-r.top+18+"px";else tip.style.top=r.bottom+18+"px";
+   el.scrollIntoView({block:"center",behavior:"instant"});
+   requestAnimationFrame(()=>{
+    const r=el.getBoundingClientRect(),p=6;
+    Object.assign(spot.style,{display:"block",left:r.left-p+"px",top:r.top-p+"px",width:r.width+2*p+"px",height:r.height+2*p+"px"});
+    if(r.top+r.height/2>innerHeight/2)tip.style.bottom=innerHeight-r.top+18+"px";else tip.style.top=r.bottom+18+"px";
+   });
   }else{spot.style.display="none";tip.style.top=Math.max(40,innerHeight/2-110)+"px";}
- });
+ };
+ if(st.v&&view!==st.v){
+  view=st.v;
+  shell();
+  setTimeout(position,30);
+ }else{
+  requestAnimationFrame(position);
+ }
 }
 if(!data.tourDone)setTimeout(()=>startTour(),1900);
 
