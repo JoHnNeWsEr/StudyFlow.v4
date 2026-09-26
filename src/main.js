@@ -79,15 +79,49 @@ function go(v){
  },130);
 }
 
-function render(){let c=document.querySelector("#content"); if(view==="home")c.innerHTML=home(); else if(view==="schedule")c.innerHTML=schedule(); else if(view==="events")c.innerHTML=events(); else if(view==="subjects")c.innerHTML=subjects(); else c.innerHTML=settings();}
+function render(){let c=document.querySelector("#content"); if(view==="home"){c.innerHTML=home();startHomeEventCountdowns();} else {clearInterval(homeEventCountdownTimer); if(view==="schedule")c.innerHTML=schedule(); else if(view==="events")c.innerHTML=events(); else if(view==="subjects")c.innerHTML=subjects(); else c.innerHTML=settings();}}
 
+let homeEventCountdownTimer=null;
+function eventStartMs(e){
+ const base=e?.date||"";
+ if(!base)return NaN;
+ return new Date(`${base}T${e.time||"00:00"}`).getTime();
+}
+function formatEventCountdown(ms){
+ ms=Math.max(0,ms);
+ let s=Math.floor(ms/1000),d=Math.floor(s/86400);s%=86400;
+ let h=Math.floor(s/3600);s%=3600;
+ let m=Math.floor(s/60),sec=s%60;
+ if(d>0)return `${d}d ${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
+ return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
+}
+function startHomeEventCountdowns(){
+ clearInterval(homeEventCountdownTimer);
+ const update=()=>{
+  document.querySelectorAll(".eventcountdown[data-event-time]").forEach(el=>{
+   const left=Number(el.dataset.eventTime)-Date.now();
+   if(left<=0){el.textContent="Starting now";el.classList.add("starting");}
+   else el.textContent=formatEventCountdown(left);
+  });
+ };
+ update();
+ homeEventCountdownTimer=setInterval(update,1000);
+}
+function upcomingEvents(){
+ const now=Date.now();
+ return data.events.filter(e=>e.status!=="Completed"&&Number.isFinite(eventStartMs(e))&&eventStartMs(e)>now)
+  .sort((a,b)=>eventStartMs(a)-eventStartMs(b)).slice(0,3);
+}
 function home(){
+ clearInterval(homeEventCountdownTimer);
  let dn=todayName(), cls=data.classes.filter(x=>x.day===dn).sort((a,b)=>a.start.localeCompare(b.start));
  let activeGoals=data.goals.filter(g=>!g.done).slice(0,3);
  let doneGoals=data.goals.filter(g=>g.done).slice(-2).reverse();
  let totalGoals=data.goals.length, completedGoals=data.goals.filter(g=>g.done).length;
  let studyProgress=totalGoals?Math.round((completedGoals/totalGoals)*100):0;
- let upcoming=data.events.filter(e=>e.status!=="Completed").sort((a,b)=>(a.date+" "+(a.time||"")).localeCompare(b.date+" "+(b.time||""))).slice(0,3);
+ let upcoming=upcomingEvents();
+ const goalRows=[...activeGoals.map(g=>({g,done:false})),...doneGoals.map(g=>({g,done:true}))];
+ const goalMarkup=goalRows.map(({g,done})=>`<div class="goalmini ${done?"done":""}" data-id="${g.id}"><div class="grow"><strong>${done?"✓":"🎯"} ${esc(g.title)}</strong><span>${done?"Completed"+(g.target?" · "+esc(g.target):""):esc(g.target||"Keep going")}</span></div>${!done?`<button class="inlinefocus" onclick="openFocus('goal','${g.id}')">⏱ Focus</button>`:""}<button class="chk goalcheck ${done?"on":""}" aria-label="${done?"Mark goal active":"Mark goal complete"}" onclick="toggleGoal('${g.id}',this)"><span class="burst"></span><svg viewBox="0 0 24 24"><path d="M5 12l4.5 4.5L19 7.5"/></svg></button></div>`).join("");
  return `<section class="page">
   <div class="hero"><div><span class="muted">${new Date().toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"})}</span><h2>Today at a glance</h2><small class="muted">${esc(data.semester.name)} · ${esc(data.semester.schoolYear)}</small></div><div class="orb">✦</div></div>
   <div class="sectionhead"><h3>Study & Goals</h3><button onclick="openGoals()">Manage</button></div>
@@ -96,10 +130,9 @@ function home(){
    <div class="card studygoalstat"><span class="staticon">🎯</span><b>${activeGoals.length}</b><span>Active goals</span></div>
   </div>
   <div class="card studygoalpanel">
-   <div class="studygoalhead"><div><strong>Study & Goals</strong><span>Keep your progress moving</span></div><button class="primary" onclick="openFocus()">⏱ Focus</button></div>
+   <div class="studygoalhead"><div><strong>Study & Goals</strong><span>Keep your progress moving</span></div></div>
    <div class="progressbar"><span style="width:${studyProgress}%"></span></div>
-   ${activeGoals.map(g=>`<div class="goalmini" data-id="${g.id}"><div class="grow"><strong>🎯 ${esc(g.title)}</strong><span>${esc(g.target||"Keep going")}</span></div><button class="inlinefocus" onclick="openFocus('goal','${g.id}')">⏱ Focus</button><button class="chk goalcheck" aria-label="Mark goal complete" onclick="toggleGoal('${g.id}')"><svg viewBox="0 0 24 24"><path d="M5 12l4.5 4.5L19 7.5"/></svg></button></div>`).join("")}
-   ${doneGoals.map(g=>`<div class="goalmini done"><div class="grow"><strong>✓ ${esc(g.title)}</strong><span>Completed${g.target?" · "+esc(g.target):""}</span></div><button class="chk on goalcheck" aria-label="Mark goal active" onclick="toggleGoal('${g.id}')"><svg viewBox="0 0 24 24"><path d="M5 12l4.5 4.5L19 7.5"/></svg></button></div>`).join("")}
+   ${goalMarkup}
    ${!activeGoals.length&&!doneGoals.length?`<div class="empty small"><strong>No study goals yet</strong><span>Add a goal to start tracking your progress.</span></div>`:""}
   </div>
   <div class="sectionhead"><h3>Upcoming Events</h3><button onclick="go('events')">View all</button></div>
@@ -108,7 +141,10 @@ function home(){
   ${cls.length?cls.map(classCard).join(""):`<div class="empty"><div>☁️</div><strong>No classes today</strong><span>Add your schedule to see it here.</span><button onclick="addClass()">Add class</button></div>`}
  </section>`;
 }
-function homeEventCard(e){const d=e.status==="Completed";return `<div class="card homeevent" data-id="${e.id}"><button class="chk ${d?"on":""}" onclick="toggleDone('${e.id}',this)" aria-label="Mark complete"><span class="burst"></span><svg viewBox="0 0 24 24"><path d="M5 12l4.5 4.5L19 7.5"/></svg></button><div class="typeicon t-${e.type.toLowerCase()}">${icon(e.type)}</div><div class="grow"><strong>${esc(e.title)}</strong><span>${esc(e.type)} · ${esc(subjectName(e.subjectId))}</span><small>${fmtDate(e.date)}${e.time?" · "+fmtTime(e.time):""}</small></div>${!d?`<button class="inlinefocus" onclick="openFocus('event','${e.id}')">⏱</button>`:""}</div>`}
+function homeEventCard(e){
+ const d=e.status==="Completed",t=eventStartMs(e);
+ return `<div class="card homeevent ${d?"done":""}" data-id="${e.id}"><button class="chk ${d?"on":""}" onclick="toggleDone('${e.id}',this)" aria-label="Mark complete"><span class="burst"></span><svg viewBox="0 0 24 24"><path d="M5 12l4.5 4.5L19 7.5"/></svg></button><div class="typeicon t-${e.type.toLowerCase()}">${icon(e.type)}</div><div class="grow"><strong>${esc(e.title)}</strong><span>${esc(e.type)} · ${esc(subjectName(e.subjectId))}</span><small>${fmtDate(e.date)}${e.time?" · "+fmtTime(e.time):""}</small></div>${Number.isFinite(t)?`<span class="eventcountdown" data-event-time="${t}">${formatEventCountdown(t-Date.now())}</span>`:""}</div>`;
+}
 function classCard(x){return `<div class="card classcard"><div class="time">${fmtTime(x.start)}<small>${fmtTime(x.end)}</small></div><div class="line"></div><div class="grow"><strong>${esc(subjectName(x.subjectId))}</strong><span>${esc(x.teacher||"")} ${x.room?"· "+esc(x.room):""}</span></div><button class="dots" onclick="editClass('${x.id}')">⋯</button></div>`}
 function eventCard(e){const d=e.status==="Completed",p=e.type==="Assignment"?e.priority:"";return `<div class="card eventcard ${d?"done":""}" data-id="${e.id}"><button class="chk ${d?"on":""}" onclick="toggleDone('${e.id}',this)" aria-label="Mark complete"><span class="burst"></span><svg viewBox="0 0 24 24"><path d="M5 12l4.5 4.5L19 7.5"/></svg></button><div class="typeicon t-${e.type.toLowerCase()}">${icon(e.type)}</div><div class="grow"><strong>${esc(e.title)}</strong><span>${esc(e.type)} · ${esc(subjectName(e.subjectId))}${p?" · "+esc(p)+" priority":""}</span><small>${d?"✓ Completed":fmtDate(e.date)+(e.time?" · "+fmtTime(e.time):"")}</small></div>${!d?`<button class="inlinefocus" onclick="openFocus('event','${e.id}')">⏱</button>`:""}<button class="dots" onclick="editEvent('${e.id}')">⋯</button></div>`}
 
@@ -211,10 +247,21 @@ window.saveGrade=e=>{e.preventDefault();data.grades.push({id:uid(),subjectId:gsu
 window.editGrade=id=>{let g=data.grades.find(x=>x.id===id);modal("Edit grade",`<form onsubmit="updateGrade(event,'${id}')"><label>Subject<select id="gsub">${subjectOptions(g.subjectId)}</select></label><label>Assessment<input id="glabel" value="${esc(g.label)}"></label><label>Score (%)<input id="gscore" type="number" min="0" max="100" step="0.01" value="${g.score}"></label><button class="primary wide">Save changes</button><button type="button" class="delete wide" onclick="deleteGrade('${id}')">Delete</button></form>`)};
 window.updateGrade=(e,id)=>{e.preventDefault();let g=data.grades.find(x=>x.id===id);Object.assign(g,{subjectId:gsub.value,label:glabel.value,score:+gscore.value});save();closeModal();openGrades()};
 window.deleteGrade=id=>{data.grades=data.grades.filter(g=>g.id!==id);save();closeModal();openGrades()};
-window.openGoals=()=>modal("Study goals & focus",`<div class="sectionhead"><h3>Goals</h3><button onclick="addGoal()">＋ Goal</button></div>${data.goals.length?data.goals.map(g=>`<div class="card goalmini ${g.done?"done":""}"><button class="chk goalcheck ${g.done?"on":""}" aria-label="${g.done?"Mark goal active":"Mark goal complete"}" onclick="toggleGoal('${g.id}')"><svg viewBox="0 0 24 24"><path d="M5 12l4.5 4.5L19 7.5"/></svg></button><div class="grow"><strong>${esc(g.title)}</strong><span>${esc(g.target||"")}</span></div><button class="dots" onclick="editGoal('${g.id}')">⋯</button></div>`).join(""):`<div class="empty small"><strong>No study goals yet</strong><span>Set a small target and build momentum.</span></div>`}<button class="primary wide" onclick="openFocus()">⏱ Start focus session</button>`);
+window.openGoals=()=>modal("Study goals & focus",`<div class="sectionhead"><h3>Goals</h3><button onclick="addGoal()">＋ Goal</button></div>${data.goals.length?data.goals.map(g=>`<div class="card goalmini ${g.done?"done":""}" data-id="${g.id}"><button class="chk goalcheck ${g.done?"on":""}" aria-label="${g.done?"Mark goal active":"Mark goal complete"}" onclick="toggleGoal('${g.id}',this)"><span class="burst"></span><svg viewBox="0 0 24 24"><path d="M5 12l4.5 4.5L19 7.5"/></svg></button><div class="grow"><strong>${esc(g.title)}</strong><span>${esc(g.target||"")}</span></div><button class="dots" onclick="editGoal('${g.id}')">⋯</button></div>`).join(""):`<div class="empty small"><strong>No study goals yet</strong><span>Set a small target and build momentum.</span></div>`}<button class="primary wide" onclick="openFocus()">⏱ Start focus session</button>`);
 window.addGoal=()=>modal("New study goal",`<form onsubmit="saveGoal(event)"><label>Goal<input id="gotitle" required placeholder="Finish Chapter 3"></label><label>Target / detail<input id="gotarget" placeholder="By Friday"></label><button class="primary wide">Save goal</button></form>`);
 window.saveGoal=e=>{e.preventDefault();data.goals.push({id:uid(),title:gotitle.value,target:gotarget.value,done:false});save();closeModal();openGoals()};
-window.toggleGoal=id=>{let g=data.goals.find(x=>x.id===id);if(!g)return;g.done=!g.done;save();closeModal();openGoals();requestAnimationFrame(()=>{const b=[...document.querySelectorAll(".goalmini .goalcheck")].find(x=>x.closest(".goalmini")?.dataset.id===id);if(b&&!g.done)b.classList.add("anim");else if(b&&g.done)b.classList.add("anim")})};
+window.toggleGoal=(id,btn)=>{
+ const g=data.goals.find(x=>x.id===id); if(!g)return;
+ const was=g.done; g.done=!was; save();
+ const card=btn?.closest(".goalmini");
+ const inHome=!!btn?.closest(".studygoalpanel");
+ if(!was && btn && card){
+  playCompletionEffect(btn,card);
+  setTimeout(()=>inHome?shell():(closeModal(),openGoals()),950);
+ }else{
+  inHome?shell():(closeModal(),openGoals());
+ }
+};
 window.editGoal=id=>{let g=data.goals.find(x=>x.id===id);modal("Edit goal",`<form onsubmit="updateGoal(event,'${id}')"><label>Goal<input id="gotitle" required value="${esc(g.title)}"></label><label>Target / detail<input id="gotarget" value="${esc(g.target||"")}"></label><button class="primary wide">Save changes</button><button type="button" class="delete wide" onclick="deleteGoal('${id}')">Delete</button></form>`)};
 window.updateGoal=(e,id)=>{e.preventDefault();let g=data.goals.find(x=>x.id===id);Object.assign(g,{title:gotitle.value,target:gotarget.value});save();closeModal();openGoals()};window.deleteGoal=id=>{data.goals=data.goals.filter(g=>g.id!==id);save();closeModal();openGoals()};
 let focusTimer=null,focusLeft=25*60,focusTotal=25*60,focusEndAt=null,focusTarget=null;
@@ -428,13 +475,23 @@ window.saveToFolder=async()=>{
 // ---------- realistic "mark as completed" ----------
 function toast(msg,undo){document.querySelector("#toast")?.remove();const t=document.createElement("div");t.id="toast";t.innerHTML=`<span>${msg}</span>${undo?'<button type="button">Undo</button>':""}`;document.body.appendChild(t);if(undo)t.querySelector("button").onclick=()=>{t.remove();undo()};setTimeout(()=>t.classList.add("in"),20);setTimeout(()=>{t.classList.remove("in");setTimeout(()=>t.remove(),300)},4200)}
 function confetti(btn){const b=btn.querySelector(".burst");b.innerHTML="";for(let i=0;i<12;i++){const a=i/12*6.283+Math.random()*.4,r=26+Math.random()*16,p=document.createElement("i");p.style.cssText=`--dx:${Math.cos(a)*r}px;--dy:${Math.sin(a)*r}px;--h:${Math.floor(Math.random()*360)}`;b.appendChild(p)}setTimeout(()=>b.innerHTML="",800)}
+function playCompletionEffect(btn,card){
+ btn.classList.add("on","anim");
+ card.classList.add("done","popping");
+ confetti(btn);
+ try{navigator.vibrate&&navigator.vibrate([14,50,22])}catch(x){}
+}
 window.toggleDone=(id,btn)=>{
- const e=data.events.find(x=>x.id===id),was=e.status==="Completed";e.status=was?"Upcoming":"Completed";e.doneAt=was?null:Date.now();save();
- const card=btn.closest(".eventcard");
- if(!was){btn.classList.add("on","anim");card.classList.add("done","popping");confetti(btn);try{navigator.vibrate&&navigator.vibrate([14,50,22])}catch(x){}
-  toast("Nice! Marked as done ✓",()=>{e.status="Upcoming";save();shell()})}
- else{btn.classList.remove("on","anim");card.classList.remove("done","popping")}
- setTimeout(shell,was?260:950);
+ const e=data.events.find(x=>x.id===id),was=e.status==="Completed";
+ e.status=was?"Upcoming":"Completed";e.doneAt=was?null:Date.now();save();
+ const card=btn.closest(".eventcard,.homeevent");
+ if(!was){
+  playCompletionEffect(btn,card);
+  toast("Nice! Marked as done ✓",()=>{e.status="Upcoming";save();shell()});
+  setTimeout(shell,950);
+ }else{
+  btn.classList.remove("on","anim");card.classList.remove("done","popping");shell();
+ }
 };
 
 // ---------- profile picture ----------
