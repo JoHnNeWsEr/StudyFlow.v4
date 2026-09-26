@@ -201,7 +201,7 @@ function evList(){const l=data.events.filter(e=>evFilter==="All"||(evFilter==="D
 function evProg(){const n=data.events.length,d=data.events.filter(e=>e.status==="Completed").length;if(!n)return"";const p=Math.round(d/n*100);return `<div class="evprog"><div class="evtxt"><b>${d} of ${n} done</b><span>${p===100?"All caught up! 🎉":(n-d)+" left to go"}</span></div><div class="pbar"><i style="width:${p}%"></i></div></div>`}
 function events(){
  return `<section class="page"><div class="pagehead"><div><span class="muted">ACADEMIC PLANNER</span><h2>Events</h2></div><button class="primary" onclick="addEvent()">＋ Event</button></div>
- ${evProg()}<div class="chips">${["All",...TYPES.filter(t=>data.events.some(e=>e.type===t)),"Done"].map(t=>`<button class="${evFilter===t?"selected":""}" onclick="filterEvents('${t}',this)">${t==="Done"?"✓ Done":t}</button>`).join("")}</div>
+ ${evProg()}<div class="chips">${["All",...TYPES.filter(t=>data.events.some(e=>e.type===t)),"Done"].map(t=>`<button class="${evFilter===t?"selected":""}" onclick="filterEvents('${t}',this)">${t==="Done"?"Done":t}</button>`).join("")}</div>
  <div id="eventlist">${data.events.length?evList():`<div class="empty"><div>📝</div><strong>No events yet</strong><span>Keep quizzes, exams and deadlines in one place.</span><button onclick="addEvent()">Add event</button></div>`}</div></section>`;
 }
 function filterEvents(t,btn){evFilter=t;document.querySelectorAll(".chips button").forEach(x=>x.classList.remove("selected"));btn.classList.add("selected");document.querySelector("#eventlist").innerHTML=evList()}
