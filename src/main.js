@@ -49,6 +49,7 @@ function shell(){
  <div class="app">
   <header class="top"><div class="hgrid"><div class="avatar" onclick="profile()">${data.profile.photo?`<img src="${data.profile.photo}" alt="">`:initials(data.profile.name)}</div>
    <div class="htext"><div class="eyebrow">${greeting().toUpperCase()} ${new Date().getHours()<12?"☀️":new Date().getHours()<18?"🌤️":"🌙"}</div><h1 class="hname">${data.profile.name?esc(data.profile.name):"Ready to study?"}</h1></div>
+   <div class="theme-art" aria-hidden="true"><span>${themeArt(data.theme)}</span><i></i><i></i><i></i></div>
    <button class="iconbtn" onclick="openQuick()">＋</button></div>
    <div class="hchips">${headChips()}</div></header>
   <main id="content"></main>
@@ -195,7 +196,7 @@ function settings(){
  <div class="settinggroup"><h3>Reminders</h3><button class="setting" onclick="toggleNotifications()"><span>🔔</span><div><strong>Notifications</strong><small>${data.notifications?"Enabled":"Disabled"}</small></div><b>${data.notifications?"ON":"OFF"}</b></button><label class="setting"><span>⏰</span><div><strong>Class reminder</strong><small>Before each class starts</small></div><select onchange="setClassRemind(this.value)">${[[0,"Off"],[5,"5 min"],[10,"10 min"],[15,"15 min"],[20,"20 min"],[30,"30 min"]].map(o=>`<option value="${o[0]}" ${(data.classRemind??10)==o[0]?"selected":""}>${o[1]}</option>`).join("")}</select></label><button class="setting" onclick="openSound()"><span>🔊</span><div><strong>Notification sound</strong><small>${data.soundOn===false?"Off":data.sound&&data.sound!=="default"?prettyS(data.sound)+" · "+(data.soundDur||15)+" sec":"Phone default"}</small></div><b>›</b></button><button class="setting" onclick="testNotify()"><span>🧪</span><div><strong>Send test notification</strong><small>Arrives in 5 seconds</small></div><b>TEST</b></button></div>
  <div class="settinggroup"><h3>Study tools</h3><button class="setting" onclick="openNotes()"><span>🗒️</span><div><strong>Notes</strong><small>${data.notes.length} saved note${data.notes.length===1?"":"s"}</small></div><b>›</b></button><button class="setting" onclick="openGoals()"><span>🎯</span><div><strong>Study goals & focus</strong><small>${data.goals.filter(g=>!g.done).length} active goal${data.goals.filter(g=>!g.done).length===1?"":"s"} · Pomodoro</small></div><b>›</b></button><button class="setting" onclick="openSemester()"><span>🗃️</span><div><strong>Semester</strong><small>${esc(data.semester.name)} · ${esc(data.semester.schoolYear)}</small></div><b>›</b></button></div>
  <div class="settinggroup"><h3>Help</h3><button class="setting" onclick="startTour()"><span>🎓</span><div><strong>Replay tutorial</strong><small>A quick guided tour of the app</small></div><b>›</b></button></div><div class="settinggroup"><h3>Backup</h3><button class="setting" onclick="openBackup()"><span>💾</span><div><strong>Backup &amp; restore</strong><small>Save or move your data</small></div><b>›</b></button></div><div class="settinggroup"><h3>Data</h3><button class="setting danger" onclick="resetData()"><span>↺</span><div><strong>Reset all data</strong><small>Remove subjects, classes and events</small></div><b>›</b></button></div>
- <p class="version">StudyFlow • v32</p></section>`;
+ <p class="version">StudyFlow • v33</p></section>`;
 }
 
 function modal(title,body){
@@ -327,6 +328,7 @@ const THEME_OPTIONS=[
  {id:"minimal",icon:"⚫",name:"Minimal",desc:"Black, white and gray"}
 ];
 function themeName(id){return THEME_OPTIONS.find(t=>t.id===id)?.name||"Light"}
+function themeArt(id){return ({light:"☀️",dark:"🌙",midnight:"🌌",ocean:"🌊",forest:"🌲",sunset:"🌅",rose:"🌸",minimal:"◼"})[id]||"☀️"}
 window.openThemes=()=>modal("Choose a theme",`<div class="themegrid">${THEME_OPTIONS.map(t=>`<button class="themecard ${data.theme===t.id?"selected":""}" onclick="setTheme('${t.id}')"><span class="themeicon theme-${t.id}">${t.icon}</span><span class="grow"><strong>${t.name}</strong><small>${t.desc}</small></span>${data.theme===t.id?'<b>✓</b>':'<b>›</b>'}</button>`).join("")} </div>`);
 window.setTheme=id=>{data.theme=THEME_OPTIONS.some(t=>t.id===id)?id:"light";save();closeModal();shell()};
 window.toggleTheme=()=>openThemes();
@@ -449,11 +451,13 @@ function showStep(first=false){
   if(el){
    el.scrollIntoView({block:"center",behavior:"smooth"});
    setTimeout(()=>{
-    const r=el.getBoundingClientRect(),p=7;
-    Object.assign(spot.style,{display:"block",left:r.left-p+"px",top:r.top-p+"px",width:r.width+2*p+"px",height:r.height+2*p+"px"});
-    if(r.top+r.height/2>innerHeight/2)tip.style.bottom=innerHeight-r.top+18+"px";else tip.style.top=r.bottom+18+"px";
+    const r=el.getBoundingClientRect(),p=8;
+    Object.assign(spot.style,{display:"block",left:Math.max(6,r.left-p)+"px",top:Math.max(6,r.top-p)+"px",width:r.width+2*p+"px",height:r.height+2*p+"px"});
+    tip.style.top=tip.style.bottom="";
+    const tipH=tip.offsetHeight||150;
+    if(r.top+r.height/2>innerHeight/2){tip.style.bottom=Math.max(18,innerHeight-r.top+18)+"px";}else{tip.style.top=Math.min(innerHeight-tipH-18,r.bottom+18)+"px";}
     t.classList.add("tour-step-in");
-   },170);
+   },260);
   }else{
    spot.style.display="none";tip.style.top=Math.max(40,innerHeight/2-110)+"px";
    t.classList.add("tour-step-in");
@@ -463,7 +467,7 @@ function showStep(first=false){
  if(st.v&&view!==st.v){
   view=st.v;
   shell();
-  setTimeout(position,90);
+  setTimeout(position,220);
  }else{
   requestAnimationFrame(position);
  }
