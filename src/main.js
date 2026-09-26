@@ -221,6 +221,9 @@ function settings(){
 }
 
 function modal(title,body){
+ // StudyFlow uses one active modal layer at a time. Replacing the existing modal
+ // prevents hidden Study & Goals / options modals from stacking underneath each other.
+ document.querySelector("#modal")?.remove();
  let el=document.createElement("div");el.className="modalwrap modal-transition";el.id="modal";el.innerHTML=`<div class="backdrop" onclick="closeModal()"></div><div class="modal"><div class="modalhead"><h2>${title}</h2><button onclick="closeModal()">×</button></div>${body}</div>`;document.body.appendChild(el);
  requestAnimationFrame(()=>requestAnimationFrame(()=>el.classList.add("modal-transition-in")));
  el.querySelectorAll("form").forEach(f=>f.addEventListener("click",ev=>{
