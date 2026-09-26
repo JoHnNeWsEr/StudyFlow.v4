@@ -7,6 +7,14 @@ html[data-theme="forest"]{--accent:#48d69a;--accent-soft:rgba(72,214,154,.16);--
 html[data-theme="sunset"]{--accent:#ffad55;--accent-soft:rgba(255,173,85,.16);--accent-contrast:#211006}
 html[data-theme="rose"]{--accent:#f06aa9;--accent-soft:rgba(240,106,169,.16);--accent-contrast:#230b17}
 html[data-theme="minimal"]{--accent:#fff;--accent-soft:rgba(255,255,255,.12);--accent-contrast:#000}
+html{--line:#e7e5ef;--card:#fff;--muted:#777;--hero-accent:#7c5cff}
+html[data-theme="dark"]{--line:#2d2d34;--card:#18181d;--muted:#a8a8b2;--hero-accent:#8f78ff}
+html[data-theme="midnight"]{--line:#302a43;--card:#191622;--muted:#aaa1bd;--hero-accent:#a58bff}
+html[data-theme="ocean"]{--line:#263b49;--card:#12202b;--muted:#9bb7c5;--hero-accent:#39bde8}
+html[data-theme="forest"]{--line:#294035;--card:#122019;--muted:#9bb8aa;--hero-accent:#48d69a}
+html[data-theme="sunset"]{--line:#473127;--card:#241813;--muted:#c3a89a;--hero-accent:#ffad55}
+html[data-theme="rose"]{--line:#493044;--card:#24141f;--muted:#c5a5b7;--hero-accent:#f06aa9}
+html[data-theme="minimal"]{--line:#292929;--card:#111;--muted:#aaa;--hero-accent:#fff}
 .empty button,.theme-add{background:var(--accent)!important;color:var(--accent-contrast)!important;border-color:transparent!important;box-shadow:0 6px 16px color-mix(in srgb,var(--accent) 22%,transparent)}
 .sectionhead button,.daytitle button,.linkbtn{color:var(--accent)!important}
 .primary{background:var(--accent);color:var(--accent-contrast)}
@@ -149,7 +157,7 @@ button:active,[onclick]:not(.backdrop):active{transform:scale(.93);filter:bright
 #toast.in{opacity:1;transform:translate(-50%,0)}
 #toast button{color:#a58bff;font-weight:800;padding:2px 4px}
 /* ----- v18 study tools ----- */
-.studygoalgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:0 0 10px}.studygoalstat{margin:0;padding:16px;min-height:105px;display:flex;flex-direction:column;justify-content:center}.studygoalstat .staticon{font-size:21px;margin-bottom:8px}.studygoalstat b{font-size:24px;line-height:1}.studygoalstat>span:last-child{font-size:11px;color:#777;font-weight:700;margin-top:5px}.studygoalpanel{padding:16px}.studygoalhead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:13px}.studygoalhead strong,.studygoalhead span{display:block}.studygoalhead strong{font-size:15px}.studygoalhead span{font-size:11px;color:#888;margin-top:3px}.progressbar{height:7px;background:#eeeef3;border-radius:99px;overflow:hidden;margin-bottom:13px}.progressbar span{display:block;height:100%;background:#7c5cff;border-radius:99px;transition:width .25s ease}.studygoalpanel .goalmini{padding:9px 0;margin:0;border-top:1px solid #f0f0f4}.studygoalpanel .goalmini:first-of-type{border-top:0}.studygoalpanel .goalmini button{flex:none}@media(max-width:380px){.studygoalhead{align-items:flex-start;flex-direction:column}.studygoalhead .primary{width:100%}}
+.studygoalgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:0 0 10px}.studygoalstat{margin:0;padding:16px;min-height:105px;display:flex;flex-direction:column;justify-content:center}.studygoalstat .staticon{font-size:21px;margin-bottom:8px}.studygoalstat b{font-size:24px;line-height:1}.studygoalstat>span:last-child{font-size:11px;color:#777;font-weight:700;margin-top:5px}.studygoalpanel{padding:16px}.studygoalhead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:13px}.studygoalhead strong,.studygoalhead span{display:block}.studygoalhead strong{font-size:15px}.studygoalhead span{font-size:11px;color:#888;margin-top:3px}.progressbar{height:7px;background:var(--accent-soft);border-radius:99px;overflow:hidden;margin-bottom:13px}.progressbar span{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .25s ease}.studygoalpanel .goalmini{padding:9px 0;margin:0;border-top:1px solid #f0f0f4}.studygoalpanel .goalmini:first-of-type{border-top:0}.studygoalpanel .goalmini button{flex:none}@media(max-width:380px){.studygoalhead{align-items:flex-start;flex-direction:column}.studygoalhead .primary{width:100%}}
 .statgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:0 0 14px}.stat{border:1px solid var(--line,#e7e5ef);background:var(--card,#fff);border-radius:16px;padding:13px 8px;text-align:center}.stat b{display:block;font-size:22px}.stat span{font-size:11px;color:var(--muted,#777);font-weight:700}.goalmini{display:flex;align-items:center;gap:12px;margin-bottom:10px}.goalmini .chk{margin:0}.goalmini.done{opacity:.55}.note,.grade,.minirow{display:flex;align-items:center;gap:12px}.note small{display:block;margin-top:4px}.minirow{padding:10px 0;border-bottom:1px solid var(--line,#e7e5ef)}.minirow b{width:44px}.hubhero{display:flex;align-items:center;gap:12px;padding:12px;border-radius:16px;background:rgba(124,92,255,.08);margin-bottom:10px}.hubhero strong,.hubhero span{display:block}.hubdot{width:14px;height:14px;border-radius:50%;background:#7c5cff}.focus{text-align:center;padding:16px}.focus #focusclock{font-size:56px;font-weight:900;letter-spacing:-.04em;margin:12px 0}.focus button{margin-top:10px}.subject{cursor:pointer}
 
 /* v22 focus + completion polish */
@@ -245,3 +253,10 @@ html[data-theme="dark"] .top::before,html[data-theme="dark"] .top::after,html[da
 .historyfull .goalhistoryitem:last-child{margin-bottom:0}
 html[data-theme="dark"] .historydialog,html[data-theme="midnight"] .historydialog,html[data-theme="ocean"] .historydialog,html[data-theme="forest"] .historydialog,html[data-theme="sunset"] .historydialog,html[data-theme="rose"] .historydialog,html[data-theme="minimal"] .historydialog{background:var(--card,#151515);border-color:var(--line,#303030)}
 @media(max-width:380px){.historyoverlay{padding:12px}.historydialog{border-radius:20px;padding:15px}}
+
+/* v41 theme-aware Today at a glance icon and study progress */
+.orb{background:var(--accent)!important;color:var(--accent-contrast)!important;box-shadow:0 10px 24px color-mix(in srgb,var(--accent) 28%,transparent)}
+.studygoalstat .staticon,.studygoalstat .staticon{color:var(--accent);filter:saturate(1.15)}
+.studygoalstat{border-color:var(--line,#e7e5ef)}
+.studyggoalpanel .progressbar{background:var(--accent-soft)}
+.studyggoalpanel .progressbar span{background:var(--accent);box-shadow:0 0 10px color-mix(in srgb,var(--accent) 28%,transparent)}

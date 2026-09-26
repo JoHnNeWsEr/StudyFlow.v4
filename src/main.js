@@ -335,7 +335,7 @@ window.openFocus=async(type=null,id=null)=>{
  renderFocus();
 };
 window.setFocusDuration=()=>{if(focusEndAt)return;let n=Math.max(1,Number(document.querySelector("#focusamount")?.value||25)),u=document.querySelector("#focusunit")?.value||"minutes",mult=u==="hours"?3600:u==="seconds"?1:60;focusTotal=Math.round(n*mult);focusLeft=focusTotal;writeFocus();renderFocus()};
-window.startFocus=async()=>{if(focusEndAt)return;if(!focusLeft)setFocusDuration();focusEndAt=Date.now()+focusLeft*1000;writeFocus();await scheduleFocusNotification();reconcileFocus();shell()};
+window.startFocus=async()=>{if(focusEndAt)return;if(!focusLeft)setFocusDuration();focusEndAt=Date.now()+focusLeft*1000;writeFocus();reconcileFocus();shell();scheduleFocusNotification().catch(e=>console.warn("Focus notification failed",e))};
 window.resetFocus=async()=>{clearInterval(focusTimer);focusTimer=null;focusEndAt=null;focusTarget=null;focusLeft=focusTotal;writeFocus();await cancelFocusNotification();shell()};
 window.addEventListener("visibilitychange",()=>{if(!document.hidden)reconcileFocus()});window.addEventListener("focus",reconcileFocus);reconcileFocus();
 window.openAcademicCalendar=()=>modal("Academic calendar",`<div class="sectionhead"><h3>Important dates</h3><button onclick="addAcademicDate()">＋ Date</button></div>${data.academicDates.length?data.academicDates.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(a=>`<div class="card note"><div class="grow"><strong>${esc(a.title)}</strong><span>${fmtDate(a.date)}${a.kind?" · "+esc(a.kind):""}</span></div><button class="dots" onclick="deleteAcademicDate('${a.id}')">×</button></div>`).join(""):`<div class="empty small"><strong>No academic dates</strong><span>Add holidays, exam periods, school events or deadlines.</span></div>`}`);
@@ -433,7 +433,7 @@ const STEPS=[
  {v:"subjects",sel:[".pagehead .primary",".empty button"],t:"Add your first subject",d:"Start here by adding a subject. You can enter its name, teacher, room and class days."},
  {v:"schedule",sel:[".pagehead .primary",".daytitle button",".empty button"],t:"Add your first class",d:"Create a class schedule with its day, start time, end time, teacher and room."},
  {v:"events",sel:[".pagehead .primary",".empty button"],t:"Add your first event",d:"Add quizzes, exams, assignments or other deadlines. You can also set a reminder."},
- {v:"home",sel:".studygoalpanel .empty button",t:"Create your first study goal",d:"Study goals help you track what you want to finish. After creating one, you can focus on that exact goal."},
+ {v:"home",sel:".studygoalpanel",t:"Create your first study goal",d:"This is where your study goals live. On a new setup, use Manage to create your first goal, then you can focus on that exact goal."},
  {v:"settings",sel:".class-reminder-setting",t:"Set class reminders",d:"Choose Off, 5, 10, 15, 20 or 30 minutes before class. Android schedules the reminder for you."},
  {v:"settings",sel:".theme-setting",t:"Choose your theme",d:"Open Theme to choose Light, Dark, Midnight, Ocean, Forest, Sunset, Rose or Minimal. The app header, buttons and system bars follow your choice."},
  {v:"settings",sel:".backup-setting",t:"Backup & restore",d:"Save your StudyFlow data as a backup and restore it later when you need it."},
