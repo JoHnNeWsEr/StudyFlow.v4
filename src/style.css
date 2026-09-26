@@ -268,3 +268,6 @@ html[data-theme="dark"] .historydialog,html[data-theme="midnight"] .historydialo
 
 /* v47: clear three-action goal menu */
 .goalactions{display:flex;flex-direction:column;gap:10px}
+
+/* v48: keep the live goal countdown on the same line as the goal title */
+.goaltitlerow{display:flex;align-items:center;gap:8px;min-width:0}.goaltitlerow strong{min-width:0}.goalinline>.goaltitlerow{margin-bottom:2px}.goalinline>.goaltitlerow .focusrunning{flex:0 0 auto;white-space:nowrap}.focusrunning{font-variant-numeric:tabular-nums}
